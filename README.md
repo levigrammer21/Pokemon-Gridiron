@@ -15,8 +15,10 @@ No build command or package installation is required. `index.html` launches the 
 ## Included game systems
 
 - Original 151 Pokémon with canonical six-stat profiles, types, height, and weight
-- Full 56-pick two-team draft with smart CPU drafting and auto-complete
-- 28-player rosters with unique one-way starters and six reserves
+- Full 150-pick, six-team snake draft with five smart CPU front offices
+- 25-player rosters with unique one-way starters and three reserves
+- Post-draft opponent selection against any of the five CPU-built clubs
+- Complete league roster viewer with all 150 drafted Pokémon
 - Offense, defense, and special-teams formation screens
 - Position-specific football ratings derived from Pokémon attributes
 - Complete 11-on-11 exhibition simulation with four eight-minute quarters

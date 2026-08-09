@@ -5,9 +5,11 @@
   const app = document.getElementById("app");
   const modalShell = document.getElementById("modalShell");
   const modalContent = document.getElementById("modalContent");
-  const SAVE_KEY = "pokemon-gridiron-151-save-v1";
-  const VERSION = 1;
-  const ROSTER_SIZE = 28;
+  const SAVE_KEY = "pokemon-gridiron-151-save-v2";
+  const VERSION = 2;
+  const TEAM_COUNT = 6;
+  const ROSTER_SIZE = 25;
+  const TOTAL_PICKS = TEAM_COUNT * ROSTER_SIZE;
 
   const TYPE_COLORS = {
     normal: "#a8a77a", fire: "#ee8130", water: "#6390f0", electric: "#f7d02c",
@@ -56,7 +58,7 @@
 
   const DRAFT_BLUEPRINT = [
     "QB","DT","WR","T","CB","RB","MLB","WR","EDGE","C","S","TE","G","CB",
-    "LB","T","DT","WR","S","EDGE","G","RB","TE","DB","DL","K","P","FLEX"
+    "LB","T","DT","WR","S","EDGE","G","RB","TE","DB","DL"
   ];
   const TARGET_MAP = {
     QB:["QB"], DT:["DT"], WR:["WR"], T:["LT","RT"], CB:["CB"], RB:["RB"], MLB:["MLB"],
@@ -64,7 +66,14 @@
     DB:["CB","FS","SS"], DL:["LE","DT","RE"], K:["K"], P:["P"], FLEX:[...OFFENSE.map(basePos),...DEFENSE.map(basePos)]
   };
   const LEGENDARIES = new Set([144,145,146,150,151]);
-  const COLORS = ["#52dcff","#ff775f","#ffc857","#a78bfa","#4ee3a1"];
+  const COLORS = ["#52dcff","#ff775f","#ffc857","#a78bfa","#4ee3a1","#f472b6"];
+  const AI_CLUBS = [
+    { id:"indigo", name:"Indigo Inferno", color:"#ff775f" },
+    { id:"pewter", name:"Pewter Ironclads", color:"#b8c2cc" },
+    { id:"saffron", name:"Saffron Psywave", color:"#ffc857" },
+    { id:"fuchsia", name:"Fuchsia Phantoms", color:"#e879f9" },
+    { id:"cinnabar", name:"Cinnabar Blaze", color:"#ff9b54" }
+  ];
 
   const clamp = (value, min=0, max=99) => Math.max(min, Math.min(max, value));
   const weighted = (...pairs) => Math.round(pairs.reduce((sum,[value,weight]) => sum + value*weight, 0));
@@ -168,9 +177,14 @@
     return 0;
   }
 
+  function createLeagueTeams(name="Cerulean Surge",color=COLORS[0]) {
+    return [{ id:"human", name, color, roster:[] }, ...AI_CLUBS.map((team)=>({ ...team, roster:[] }))];
+  }
+
   function defaultState() {
     return {
       version:VERSION, screen:"home", teamName:"Cerulean Surge", teamColor:COLORS[0], cpuName:"Indigo Inferno", cpuColor:"#ff775f",
+      leagueTeams:createLeagueTeams(), leagueLineups:[], opponentIndex:1,
       humanRoster:[], cpuRoster:[], draftPicks:[], draftIndex:0, search:"", typeFilter:"all", sort:"fit",
       humanLineup:null, cpuLineup:null, rosterTab:"offense", selectedSlot:null, returnToReport:false,
       game:null, sidebarTab:"plays", postgameTab:"summary", speed:1, autoplay:false, sound:false
@@ -231,6 +245,8 @@
 
   function render() {
     clearTimeout(autoTimer);
+    document.documentElement.style.setProperty("--human",state.teamColor);
+    document.documentElement.style.setProperty("--cpu",state.cpuColor);
     const renderers = { home:renderHome, draft:renderDraft, roster:renderRoster, game:renderGame, report:renderReport, postgame:renderPostgame };
     (renderers[state.screen] || renderHome)();
     const soundButton=document.getElementById("soundToggle");
@@ -244,17 +260,17 @@
     app.innerHTML = `
       <section class="hero-grid">
         <div class="hero-copy">
-          <p class="eyebrow">Kanto Football Association · Exhibition Series</p>
+          <p class="eyebrow">Kanto Football Association · Six-club league</p>
           <h1 class="display-title">Draft legends.<br><span>Coach every snap.</span></h1>
-          <p class="lede">Build an offense and defense from the original 151. Watch every play unfold, diagnose individual matchups, and take control at every quarter break.</p>
+          <p class="lede">Enter a six-team snake draft, fight for a scarce 25-player roster, then watch every play unfold and coach the matchup at each quarter break.</p>
           <div class="hero-actions">
             <button class="primary-button" data-action="focus-setup">Enter the draft room</button>
             <button class="secondary-button" data-action="quick-exhibition">Quick exhibition</button>
             ${continueLabel ? `<button class="secondary-button" data-action="continue-save">${continueLabel}</button>` : ""}
           </div>
           <div class="feature-row">
-            <span><i>151</i> Complete Kanto draft pool</span>
-            <span><i>22</i> Full offense & defense</span>
+            <span><i>6</i> Competing clubs</span>
+            <span><i>150</i> Total draft selections</span>
             <span><i>4Q</i> Live coaching windows</span>
           </div>
         </div>
@@ -282,10 +298,11 @@
   function startDraft(quick=false) {
     const input = document.getElementById("teamNameInput");
     if (input?.value.trim()) state.teamName = input.value.trim().slice(0,26);
+    state.leagueTeams=createLeagueTeams(state.teamName,state.teamColor); state.leagueLineups=[]; state.opponentIndex=1;
     state.humanRoster=[]; state.cpuRoster=[]; state.draftPicks=[]; state.draftIndex=0; state.humanLineup=null; state.cpuLineup=null; state.game=null;
     state.screen="draft";
     if (quick) {
-      autoCompleteDraft(true);
+      autoCompleteDraft();
       return;
     }
     processCpuTurns();
@@ -293,15 +310,15 @@
   }
 
   function teamAtPick(index) {
-    const round = Math.floor(index/2);
-    const slot = index%2;
-    return round%2===0 ? (slot===0?"human":"cpu") : (slot===0?"cpu":"human");
+    const round = Math.floor(index/TEAM_COUNT);
+    const slot = index%TEAM_COUNT;
+    return round%2===0 ? slot : TEAM_COUNT-1-slot;
   }
 
-  function draftedIds() { return new Set([...state.humanRoster,...state.cpuRoster]); }
+  function draftedIds() { return new Set(state.leagueTeams.flatMap((team)=>team.roster)); }
 
-  function targetForTeam(team) {
-    const count = team === "human" ? state.humanRoster.length : state.cpuRoster.length;
+  function targetForTeam(teamIndex) {
+    const count = state.leagueTeams[teamIndex]?.roster.length || 0;
     return DRAFT_BLUEPRINT[Math.min(count,DRAFT_BLUEPRINT.length-1)];
   }
 
@@ -310,9 +327,9 @@
     return Math.max(...positions.map((pos)=>p.football.positions[pos] || 25));
   }
 
-  function smartPick(team) {
+  function smartPick(teamIndex) {
     const used = draftedIds();
-    const target = targetForTeam(team);
+    const target = targetForTeam(teamIndex);
     const available = POKEMON.filter((p)=>!used.has(p.id));
     const ranked = available.map((p)=>{
       let score = candidateTargetScore(p,target);
@@ -323,58 +340,85 @@
     return ranked[0]?.[0];
   }
 
-  function commitPick(pokemon,team) {
+  function commitPick(pokemon,teamIndex) {
     if (!pokemon || draftedIds().has(pokemon.id)) return;
-    const roster = team === "human" ? state.humanRoster : state.cpuRoster;
+    const roster = state.leagueTeams[teamIndex].roster;
     roster.push(pokemon.id);
-    state.draftPicks.push({ index:state.draftIndex, team, pokemonId:pokemon.id });
+    state.draftPicks.push({ index:state.draftIndex, teamIndex, pokemonId:pokemon.id });
     state.draftIndex++;
-    playTone(team==="human"?"select":"hit");
+    playTone(teamIndex===0?"select":"hit");
   }
 
   function processCpuTurns() {
-    while (state.draftIndex < ROSTER_SIZE*2 && teamAtPick(state.draftIndex) === "cpu") commitPick(smartPick("cpu"),"cpu");
-    if (state.draftIndex >= ROSTER_SIZE*2) finalizeDraft();
+    while (state.draftIndex < TOTAL_PICKS && teamAtPick(state.draftIndex) !== 0) {
+      const teamIndex=teamAtPick(state.draftIndex);
+      commitPick(smartPick(teamIndex),teamIndex);
+    }
+    if (state.draftIndex >= TOTAL_PICKS) finalizeDraft();
   }
 
-  function autoCompleteDraft(both=false) {
-    while (state.draftIndex < ROSTER_SIZE*2) {
-      const team = teamAtPick(state.draftIndex);
-      if (team === "human" && !both && state.humanRoster.length >= ROSTER_SIZE) break;
-      commitPick(smartPick(team),team);
+  function autoCompleteDraft() {
+    while (state.draftIndex < TOTAL_PICKS) {
+      const teamIndex = teamAtPick(state.draftIndex);
+      commitPick(smartPick(teamIndex),teamIndex);
     }
     finalizeDraft();
   }
 
+  function syncOpponent() {
+    const opponent=state.leagueTeams[state.opponentIndex] || state.leagueTeams[1];
+    state.opponentIndex=state.leagueTeams.indexOf(opponent);
+    state.cpuName=opponent.name; state.cpuColor=opponent.color; state.cpuRoster=[...opponent.roster];
+    state.cpuLineup=state.leagueLineups[state.opponentIndex] || autoAssign(opponent.roster);
+  }
+
   function finalizeDraft() {
-    state.humanLineup = autoAssign(state.humanRoster);
-    state.cpuLineup = autoAssign(state.cpuRoster);
+    state.leagueLineups=state.leagueTeams.map((team)=>autoAssign(team.roster));
+    state.humanRoster=[...state.leagueTeams[0].roster];
+    state.humanLineup=state.leagueLineups[0];
+    syncOpponent();
     state.rosterTab="offense"; state.selectedSlot=null; state.screen="roster";
-    save(); render(); toast("Draft complete — your depth chart is ready.");
+    const undrafted=POKEMON.find((p)=>!draftedIds().has(p.id));
+    save(); render(); toast(`Six-team draft complete${undrafted?` — ${undrafted.name} went undrafted`:""}.`);
   }
 
   function renderDraft() {
-    const currentTeam = state.draftIndex < ROSTER_SIZE*2 ? teamAtPick(state.draftIndex) : "complete";
+    const currentTeamIndex = state.draftIndex < TOTAL_PICKS ? teamAtPick(state.draftIndex) : -1;
+    const currentTeam = state.leagueTeams[currentTeamIndex];
     const used = draftedIds();
     const term = state.search.toLowerCase();
     let available = POKEMON.filter((p)=>!used.has(p.id) && (!term || p.name.toLowerCase().includes(term) || String(p.id).includes(term)) && (state.typeFilter==="all" || p.types.includes(state.typeFilter)));
-    const target = targetForTeam("human");
+    const target = targetForTeam(0);
     available.sort((a,b)=> state.sort==="dex" ? a.id-b.id : state.sort==="name" ? a.name.localeCompare(b.name) : candidateTargetScore(b,target)-candidateTargetScore(a,target));
-    const futurePicks = Array.from({length:Math.min(24,ROSTER_SIZE*2)},(_,i)=>{
+    const round=Math.min(ROSTER_SIZE-1,Math.floor(state.draftIndex/TEAM_COUNT));
+    const queueStart=Math.max(0,round*TEAM_COUNT-TEAM_COUNT);
+    const queueEnd=Math.min(TOTAL_PICKS,round*TEAM_COUNT+TEAM_COUNT*2);
+    const futurePicks = Array.from({length:queueEnd-queueStart},(_,offset)=>{
+      const i=queueStart+offset;
       const pick = state.draftPicks.find((item)=>item.index===i);
-      const team = pick?.team || teamAtPick(i);
+      const teamIndex = pick?.teamIndex ?? teamAtPick(i);
+      const team = state.leagueTeams[teamIndex];
       const p = pick ? byId[pick.pokemonId] : null;
-      return `<div class="pick-row ${i===state.draftIndex?"current":""} ${pick?"complete":""}"><span class="pick-no">${i+1}</span>${p?`<img src="${p.sprite}" alt="" />`:`<span class="team-shield" style="--team-color:${team==="human"?state.teamColor:state.cpuColor};width:31px;height:34px;font-size:12px">${esc(teamInitials(team==="human"?state.teamName:state.cpuName))}</span>`}<div><strong>${p?esc(p.name):esc(team==="human"?state.teamName:state.cpuName)}</strong><span>${p?`${p.best.position} · ${p.best.rating} OVR`:"On the clock"}</span></div></div>`;
+      return `<div class="pick-row ${i===state.draftIndex?"current":""} ${pick?"complete":""}"><span class="pick-no">${i+1}</span>${p?`<img src="${p.sprite}" alt="" />`:`<span class="team-shield mini-shield" style="--team-color:${team.color}">${esc(teamInitials(team.name))}</span>`}<div><strong>${p?esc(p.name):esc(team.name)}</strong><span>${p?`${esc(team.name)} · ${p.best.position} ${p.best.rating}`:`Round ${Math.floor(i/TEAM_COUNT)+1} · ${teamIndex===0?"Your pick":"CPU"}`}</span></div></div>`;
+    }).join("");
+    const leaguePanel=state.leagueTeams.map((team,index)=>{
+      const latest=[...team.roster].slice(-3).reverse();
+      const avg=team.roster.length?Math.round(team.roster.reduce((sum,id)=>sum+byId[id].best.rating,0)/team.roster.length):0;
+      return `<button class="league-team ${index===currentTeamIndex?"active":""} ${index===0?"user-team":""}" data-action="show-league">
+        <span class="league-color" style="--team-color:${team.color}">${esc(teamInitials(team.name))}</span>
+        <span class="league-team-copy"><strong>${esc(team.name)}</strong><small>${team.roster.length}/${ROSTER_SIZE} · ${team.roster.length?`${avg} avg`:`targets ${esc(targetForTeam(index))}`}</small></span>
+        <span class="league-picks">${latest.map((id)=>`<img src="${byId[id].sprite}" alt="${esc(byId[id].name)}"/>`).join("")}</span>
+      </button>`;
     }).join("");
     app.className="screen draft-screen";
     app.innerHTML=`
       <section class="draft-head">
-        <div><p class="eyebrow">Kanto allocation draft</p><h1 class="section-title">Draft room</h1><p class="tiny">Pick ${state.draftIndex+1} of ${ROSTER_SIZE*2} · ${currentTeam==="human"?`${esc(state.teamName)} are on the clock`:"Opponent selecting"}</p></div>
-        <div class="pick-clock"><strong>${ROSTER_SIZE-state.humanRoster.length}</strong><span>ROSTER SPOTS</span></div>
+        <div><p class="eyebrow">Six-club Kanto allocation draft</p><h1 class="section-title">Draft room</h1><p class="tiny">Round ${round+1} of ${ROSTER_SIZE} · Pick ${state.draftIndex+1} of ${TOTAL_PICKS} · ${currentTeamIndex===0?`${esc(state.teamName)} are on the clock`:esc(currentTeam?.name||"Draft complete")}</p></div>
+        <div class="pick-clock"><strong>${ROSTER_SIZE-state.leagueTeams[0].roster.length}</strong><span>YOUR PICKS LEFT</span></div>
         <div class="draft-head-actions"><button class="secondary-button" data-action="auto-draft">Auto-complete</button><button class="quiet-button" data-action="draft-help">Ratings guide</button></div>
       </section>
       <section class="draft-layout">
-        <aside class="draft-sidebar"><div class="panel-head"><h2 class="panel-title">Draft board</h2><span class="tiny">SNAKE</span></div><div class="round-list">${futurePicks}</div></aside>
+        <aside class="draft-sidebar"><div class="panel-head"><h2 class="panel-title">Pick queue</h2><span class="tiny">6-TEAM SNAKE</span></div><div class="round-list">${futurePicks}</div></aside>
         <div class="draft-board">
           <div class="filter-bar">
             <input id="draftSearch" value="${esc(state.search)}" placeholder="Search name or Pokédex #" aria-label="Search Pokémon" />
@@ -382,12 +426,12 @@
             <select id="sortDraft" aria-label="Sort draft pool"><option value="fit" ${state.sort==="fit"?"selected":""}>Best ${esc(target)} fit</option><option value="dex" ${state.sort==="dex"?"selected":""}>Pokédex order</option><option value="name" ${state.sort==="name"?"selected":""}>Name</option></select>
           </div>
           <div class="pokemon-grid">${available.map((p)=>`
-            <button class="pokemon-card ${LEGENDARIES.has(p.id)?"legendary":""}" data-action="draft-pick" data-id="${p.id}" ${currentTeam!=="human"?"disabled":""}>
+            <button class="pokemon-card ${LEGENDARIES.has(p.id)?"legendary":""}" data-action="draft-pick" data-id="${p.id}" ${currentTeamIndex!==0?"disabled":""}>
               <span class="dex-no">#${String(p.id).padStart(3,"0")}</span><img src="${p.art}" alt="${esc(p.name)}" loading="lazy" />
               <h3>${esc(p.name)}</h3><div class="card-meta"><span class="fit-label">${esc(target)} FIT</span><b class="fit-score">${candidateTargetScore(p,target)}</b></div>${typePills(p)}${miniStats(p)}
             </button>`).join("")}</div>
         </div>
-        <aside class="draft-roster"><div class="panel-head"><h2 class="panel-title">${esc(state.teamName)}</h2><span class="tiny">${state.humanRoster.length}/${ROSTER_SIZE}</span></div><div class="roster-progress"><i style="width:${state.humanRoster.length/ROSTER_SIZE*100}%"></i></div><div class="drafted-stack">${[...state.humanRoster].reverse().map((id)=>{const p=byId[id];return `<button class="drafted-player" data-action="profile" data-id="${id}"><img src="${p.sprite}" alt=""/><span><strong>${esc(p.name)}</strong><small>${p.types.join(" · ")}</small></span><b>${p.best.rating}</b></button>`}).join("") || `<p class="muted" style="padding:12px;font-size:11px">Your selections will appear here.</p>`}</div></aside>
+        <aside class="draft-roster"><div class="panel-head"><h2 class="panel-title">League war room</h2><span class="tiny">${used.size}/${TOTAL_PICKS}</span></div><div class="league-stack">${leaguePanel}</div><button class="league-open" data-action="show-league">Inspect all six rosters →</button></aside>
       </section>`;
   }
 
@@ -416,6 +460,16 @@
     return new Set([...Object.values(lineup.offense),...Object.values(lineup.defense)]);
   }
 
+  function teamRosterGrade(team) {
+    if (!team?.roster.length) return 0;
+    if (team.roster.length < ALL_SLOTS.length) return Math.round(team.roster.reduce((sum,id)=>sum+byId[id].best.rating,0)/team.roster.length);
+    const lineup=state.leagueLineups[state.leagueTeams.indexOf(team)] || autoAssign(team.roster);
+    return Math.round(ALL_SLOTS.reduce((sum,slot)=>{
+      const side=OFFENSE.includes(slot)?"offense":"defense";
+      return sum+(byId[lineup[side][slot]]?.football.positions[basePos(slot)]||0);
+    },0)/ALL_SLOTS.length);
+  }
+
   function renderRoster() {
     const tab = state.rosterTab;
     const lineup = state.humanLineup;
@@ -429,17 +483,25 @@
     const coords = tab === "special" ? { K:[38,52],P:[62,52] } : FORMATION_COORDS[tab];
     const grade = Math.round(positions.reduce((sum,slot)=>sum+(byId[sideLineup[slot]]?.football.positions[basePos(slot)]||0),0)/positions.length);
     const buttonLabel = state.returnToReport ? "Return to quarter report" : state.game ? "Return to game" : "Kick off exhibition";
+    const opponent=state.leagueTeams[state.opponentIndex];
+    const opponentTop=[...opponent.roster].sort((a,b)=>byId[b].best.rating-byId[a].best.rating).slice(0,4);
     app.className="screen roster-screen";
     app.innerHTML=`
       <section class="roster-top">
-        <div class="team-lockup">${teamShield(state.teamName,state.teamColor)}<div><h1>${esc(state.teamName)}</h1><p>28-player active roster · ${grade} ${tab.toUpperCase()} grade</p></div></div>
+        <div class="team-lockup">${teamShield(state.teamName,state.teamColor)}<div><h1>${esc(state.teamName)}</h1><p>25-player active roster · ${grade} ${tab.toUpperCase()} grade</p></div></div>
         <div class="roster-actions">
           <div class="segmented" role="tablist">
             ${["offense","defense","special"].map((name)=>`<button class="seg-button ${tab===name?"active":""}" data-action="roster-tab" data-tab="${name}" role="tab">${name}</button>`).join("")}
           </div>
+          <button class="secondary-button" data-action="show-league">League rosters</button>
           <button class="secondary-button" data-action="optimize-lineup">Auto optimize</button>
           <button class="primary-button" data-action="start-game">${buttonLabel}</button>
         </div>
+      </section>
+      <section class="opponent-strip">
+        <div class="opponent-label"><span class="tiny">EXHIBITION OPPONENT</span><select id="opponentSelect" aria-label="Choose exhibition opponent" ${state.game?"disabled":""}>${state.leagueTeams.slice(1).map((team,index)=>`<option value="${index+1}" ${state.opponentIndex===index+1?"selected":""}>${esc(team.name)} · ${teamRosterGrade(team)} OVR</option>`).join("")}</select></div>
+        <div class="opponent-scout">${teamShield(opponent.name,opponent.color)}<div><strong>${esc(opponent.name)}</strong><small>${teamRosterGrade(opponent)} roster grade · Top threats</small></div><span class="opponent-faces">${opponentTop.map((id)=>`<img src="${byId[id].sprite}" alt="${esc(byId[id].name)}" title="${esc(byId[id].name)}"/>`).join("")}</span></div>
+        <p>${state.game?"Opponent locked for this game.":"Choose any of the five CPU-drafted clubs before kickoff."}</p>
       </section>
       <section class="roster-layout">
         <div class="formation-panel">
@@ -482,6 +544,7 @@
       }
       lineupGroup[state.selectedSlot]=id;
     }
+    state.leagueLineups[0]=state.humanLineup;
     state.selectedSlot=null; save(); render();
     toast(`${byId[id].name} moved into the starting lineup.`);
     if (selectedId && selectedId!==id) playTone("select");
@@ -492,6 +555,7 @@
     if (state.selectedSlot===slot) { state.selectedSlot=null; render(); return; }
     const group = state.rosterTab === "special" ? state.humanLineup.special : state.humanLineup[state.rosterTab];
     [group[state.selectedSlot],group[slot]]=[group[slot],group[state.selectedSlot]];
+    state.leagueLineups[0]=state.humanLineup;
     state.selectedSlot=null; save(); render(); playTone("select");
   }
 
@@ -517,6 +581,15 @@
 
   function showRatingsGuide() {
     modalContent.innerHTML=`<div class="modal-head"><h2 class="panel-title" id="modalTitle">How football ratings work</h2><button class="close-button" data-close-modal>×</button></div><div class="play-explain"><h3 class="explain-headline">Six stats. Every position.</h3><p class="explain-detail">Attack drives physical force. Special Attack drives technical execution. Defense creates leverage and anchoring. Special Defense becomes awareness and composure. Speed controls movement and pursuit. HP supplies stamina and durability. Height and weight add a capped body-profile influence, so size matters without deciding every matchup.</p><div class="matchup-box">${[["Attack","Strength · blocking · tackling"],["Sp. Attack","Throwing · routes · kicking"],["Defense","Anchoring · contact balance"],["Sp. Defense","Awareness · coverage · discipline"],["Speed","Acceleration · pursuit · separation"],["HP","Stamina · durability · carrying"]].map(([a,b])=>`<div class="matchup-row"><strong>${a}</strong><span>feeds</span><strong>${b}</strong></div>`).join("")}</div><p class="explain-detail">Position overall is a summary only. The play engine compares the underlying skills, condition, scheme, type interaction, and controlled variance on every event.</p></div>`;
+    openModal();
+  }
+
+  function showLeagueOverview() {
+    const teams=state.leagueTeams || [];
+    modalContent.innerHTML=`<div class="modal-head"><div><p class="eyebrow">150 selections · one player undrafted</p><h2 class="panel-title" id="modalTitle">Kanto league rosters</h2></div><button class="close-button" data-close-modal>×</button></div><div class="league-modal-grid">${teams.map((team,index)=>{
+      const sorted=[...team.roster].sort((a,b)=>byId[b].best.rating-byId[a].best.rating);
+      return `<section class="league-roster-card ${index===0?"user-team":""}" style="--club:${team.color}"><div class="league-roster-head">${teamShield(team.name,team.color)}<div><h3>${esc(team.name)}</h3><p>${team.roster.length}/${ROSTER_SIZE} PLAYERS · ${teamRosterGrade(team)} ROSTER OVR${index===state.opponentIndex?" · SELECTED OPPONENT":""}</p></div></div><div class="league-roster-grid">${sorted.map((id)=>{const p=byId[id];return `<button data-action="profile" data-id="${id}" title="${esc(p.name)} · ${p.best.position} ${p.best.rating}"><img src="${p.sprite}" alt="${esc(p.name)}"/><span>${p.best.position}</span></button>`;}).join("")}</div></section>`;
+    }).join("")}</div>`;
     openModal();
   }
 
@@ -973,15 +1046,16 @@
     if(action==="quick-exhibition"){const input=document.getElementById("teamNameInput");if(input?.value.trim())state.teamName=input.value.trim().slice(0,26);startDraft(true);}
     if(action==="continue-save"&&savedState){state=JSON.parse(JSON.stringify(savedState));state.autoplay=false;if(state.game)state.game.animating=false;render();}
     if(action==="draft-pick"){
-      if(teamAtPick(state.draftIndex)!=="human")return;const p=byId[Number(button.dataset.id)];commitPick(p,"human");processCpuTurns();if(state.screen==="draft"){save();render();}
+      if(teamAtPick(state.draftIndex)!==0)return;const p=byId[Number(button.dataset.id)];commitPick(p,0);processCpuTurns();if(state.screen==="draft"){save();render();}
     }
-    if(action==="auto-draft")autoCompleteDraft(false);
+    if(action==="auto-draft")autoCompleteDraft();
     if(action==="draft-help")showRatingsGuide();
+    if(action==="show-league")showLeagueOverview();
     if(action==="profile")showProfile(Number(button.dataset.id));
     if(action==="roster-tab"){state.rosterTab=button.dataset.tab;state.selectedSlot=null;render();}
     if(action==="select-slot")swapSlots(button.dataset.slot);
     if(action==="bench-player")substitutePlayer(Number(button.dataset.id));
-    if(action==="optimize-lineup"){state.humanLineup=autoAssign(state.humanRoster);state.selectedSlot=null;save();render();toast("Depth chart optimized across all 22 starting positions.");}
+    if(action==="optimize-lineup"){state.humanLineup=autoAssign(state.humanRoster);state.leagueLineups[0]=state.humanLineup;state.selectedSlot=null;save();render();toast("Depth chart optimized across all 22 starting positions.");}
     if(action==="start-game")startGame();
     if(action==="next-play")runNextPlay();
     if(action==="toggle-auto"){
@@ -1001,6 +1075,7 @@
     const target=event.target;
     if(target.id==="typeFilter"){state.typeFilter=target.value;render();}
     if(target.id==="sortDraft"){state.sort=target.value;render();}
+    if(target.id==="opponentSelect"&&!state.game){state.opponentIndex=Number(target.value);syncOpponent();save();render();toast(`${state.cpuName} selected as your exhibition opponent.`);}
     if(target.matches("[data-strategy]")){state.game.strategy.human[target.dataset.strategy]=target.value;save();toast("Coaching adjustment saved for the next quarter.");}
   });
 

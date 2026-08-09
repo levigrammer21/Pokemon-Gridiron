@@ -120,6 +120,7 @@ button:disabled { opacity: .38; cursor: not-allowed; transform: none !important;
 .pick-row img { width: 34px; height: 34px; object-fit: contain; }
 .pick-row strong { font-size: 11px; display: block; }
 .pick-row span { font-size: 9px; color: var(--muted); }
+.pick-row .mini-shield { width: 31px; height: 34px; font-size: 12px; color: #03121b; }
 .filter-bar { padding: 12px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(160px,1fr) 130px 145px; gap: 8px; }
 .filter-bar input, .filter-bar select, .strategy-select { min-height: 40px; border: 1px solid var(--line); background: #081521; color: var(--ink); border-radius: 7px; padding: 0 11px; font-size: 12px; }
 .pokemon-grid { padding: 12px; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 9px; max-height: calc(100vh - 280px); overflow: auto; scrollbar-width: thin; scrollbar-color: var(--faint) transparent; }
@@ -145,6 +146,18 @@ button:disabled { opacity: .38; cursor: not-allowed; transform: none !important;
 .drafted-player b { font: 800 17px "Barlow Condensed"; color: var(--gold); }
 .roster-progress { height: 3px; background: rgba(255,255,255,.06); }
 .roster-progress i { height: 100%; display: block; background: var(--human); transition: width .3s ease; }
+.league-stack { padding: 9px; display: grid; gap: 7px; }
+.league-team { width: 100%; min-width: 0; min-height: 64px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.025); color: var(--ink); padding: 8px; display: grid; grid-template-columns: 38px minmax(0,1fr) auto; gap: 9px; align-items: center; text-align: left; }
+.league-team:hover, .league-team.active { border-color: rgba(82,220,255,.48); background: var(--cyan-soft); }
+.league-team.user-team { box-shadow: inset 3px 0 var(--human); }
+.league-color { width: 35px; height: 41px; clip-path: polygon(50% 0,93% 15%,85% 75%,50% 100%,15% 75%,7% 15%); background: var(--team-color); color: #03121b; display: grid; place-items: center; font: 900 13px "Barlow Condensed"; }
+.league-team-copy { min-width: 0; }
+.league-team-copy strong { display: block; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.league-team-copy small { display: block; margin-top: 3px; color: var(--muted); font-size: 8px; }
+.league-picks { display: flex; justify-content: flex-end; min-width: 39px; }
+.league-picks img { width: 28px; height: 28px; object-fit: contain; margin-left: -12px; border-radius: 50%; background: #071521; }
+.league-open { width: 100%; min-height: 44px; border: 0; border-top: 1px solid var(--line); background: #081521; color: var(--cyan); font-size: 10px; font-weight: 800; }
+.league-open:hover { background: var(--panel-3); }
 
 /* Roster */
 .roster-screen { padding-top: 24px; }
@@ -154,6 +167,17 @@ button:disabled { opacity: .38; cursor: not-allowed; transform: none !important;
 .team-lockup h1 { margin: 0; font: 800 clamp(30px,4vw,48px)/.9 "Barlow Condensed"; text-transform: uppercase; }
 .team-lockup p { margin: 6px 0 0; color: var(--muted); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
 .roster-actions { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.opponent-strip { margin: -4px 0 16px; border: 1px solid var(--line); border-left: 3px solid var(--cpu); border-radius: 10px; background: rgba(12,26,39,.94); min-height: 78px; padding: 10px 14px; display: grid; grid-template-columns: minmax(210px,.8fr) minmax(300px,1fr) minmax(180px,.7fr); gap: 16px; align-items: center; }
+.opponent-label .tiny { display: block; margin-bottom: 5px; }
+.opponent-label select { width: 100%; min-height: 38px; border: 1px solid var(--line); background: #071521; color: var(--ink); border-radius: 7px; padding: 0 10px; font-weight: 700; }
+.opponent-label select:disabled { opacity: .65; }
+.opponent-scout { display: flex; align-items: center; gap: 10px; }
+.opponent-scout .team-shield { width: 38px; height: 44px; font-size: 16px; }
+.opponent-scout strong { display: block; font-size: 11px; }
+.opponent-scout small { display: block; color: var(--muted); font-size: 8px; margin-top: 3px; }
+.opponent-faces { display: flex; margin-left: auto; }
+.opponent-faces img { width: 38px; height: 38px; object-fit: contain; margin-left: -7px; border-radius: 50%; background: #071521; border: 1px solid var(--line); }
+.opponent-strip > p { color: var(--muted); font-size: 9px; line-height: 1.45; margin: 0; }
 .segmented { display: inline-flex; border: 1px solid var(--line); background: #081521; border-radius: 9px; padding: 3px; }
 .seg-button { min-height: 34px; padding: 0 13px; border: 0; background: transparent; border-radius: 6px; color: var(--muted); font-size: 11px; font-weight: 800; }
 .seg-button.active { background: var(--panel-3); color: var(--ink); box-shadow: 0 2px 8px rgba(0,0,0,.25); }
@@ -307,6 +331,18 @@ button:disabled { opacity: .38; cursor: not-allowed; transform: none !important;
 .position-fit span { display: block; color: var(--muted); font-size: 7px; }
 .position-fit b { font: 800 17px "Barlow Condensed"; }
 .play-explain { padding: 20px; }
+.league-modal-grid { padding: 14px; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 11px; }
+.league-roster-card { border: 1px solid var(--line); border-top: 3px solid var(--club); border-radius: 10px; background: #081521; padding: 11px; }
+.league-roster-card.user-team { box-shadow: 0 0 0 1px color-mix(in srgb,var(--human),transparent 40%); }
+.league-roster-head { display: flex; gap: 10px; align-items: center; }
+.league-roster-head .team-shield { width: 38px; height: 44px; font-size: 16px; }
+.league-roster-head h3 { margin: 0; font: 800 18px "Barlow Condensed"; text-transform: uppercase; }
+.league-roster-head p { margin: 3px 0 0; color: var(--muted); font-size: 8px; }
+.league-roster-grid { display: grid; grid-template-columns: repeat(9,1fr); gap: 3px; margin-top: 9px; }
+.league-roster-grid button { position: relative; min-width: 0; aspect-ratio: 1; border: 1px solid rgba(255,255,255,.06); background: rgba(255,255,255,.025); border-radius: 4px; padding: 1px; }
+.league-roster-grid button:hover { border-color: var(--cyan); }
+.league-roster-grid img { width: 100%; height: 100%; object-fit: contain; }
+.league-roster-grid span { position: absolute; right: 1px; bottom: 1px; background: rgba(3,12,19,.85); color: var(--muted); border-radius: 2px; padding: 1px 2px; font-size: 6px; }
 .explain-headline { font: 800 34px/1 "Barlow Condensed"; text-transform: uppercase; margin: 0; }
 .explain-detail { color: var(--muted); line-height: 1.65; font-size: 12px; }
 .matchup-box { border: 1px solid var(--line); border-radius: 8px; margin-top: 14px; overflow: hidden; }
@@ -339,6 +375,8 @@ button:disabled { opacity: .38; cursor: not-allowed; transform: none !important;
   .draft-sidebar { display: none; }
   .pokemon-grid { max-height: none; grid-template-columns: repeat(3,minmax(0,1fr)); }
   .roster-layout { grid-template-columns: 1fr; }
+  .opponent-strip { grid-template-columns: 1fr 1.2fr; }
+  .opponent-strip > p { display: none; }
   .formation-panel { min-height: 620px; }
   .bench-list { max-height: 400px; }
   .game-layout { grid-template-columns: 1fr; }
@@ -365,6 +403,9 @@ button:disabled { opacity: .38; cursor: not-allowed; transform: none !important;
   .pokemon-card img { width: 61px; height: 57px; }
   .roster-top { align-items: start; flex-direction: column; }
   .roster-actions { justify-content: start; }
+  .opponent-strip { grid-template-columns: 1fr; }
+  .opponent-faces { display: none; }
+  .league-modal-grid { grid-template-columns: 1fr; }
   .formation-panel { min-height: 560px; }
   .formation-slot { width: 65px; }
   .formation-slot .slot-photo { width: 52px; height: 52px; }
