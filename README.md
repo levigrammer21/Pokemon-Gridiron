@@ -1,4 +1,4 @@
-# Pokémon Gridiron
+# Pokémon Gridiron v2.1.0
 
 Pokémon Gridiron is a polished, private 11-on-11 football simulator and collection game featuring the complete first three generations: National Pokédex #001–#386.
 
@@ -52,6 +52,8 @@ No build command, package installation, database, or server is required. `index.
 - Wider, staggered offense and defense spacing with visible position labels.
 - Formation-specific alignment and route movement for slants, mesh, screens, crosses, verticals, wheels, inside zone, power, stretch, and jet action.
 - Pre-snap idle motion, snap phase, route development, ball travel, pursuit, and a delayed result reveal.
+- Multi-stage releases, blocking engagement, pursuit, ball flight, and contact animations make each play develop smoothly instead of jumping straight to the result.
+- A protected **Sim to End** option resolves every remaining snap instantly while preserving the current score, statistics, fatigue, Franchise progression, standings, and rewards.
 - Complete downs, distance, game clock, punts, field goals, touchdowns, turnovers, penalties, overtime, fatigue, substitutions, and type matchup modifiers.
 - Quarter reports with coordinator notes and adjustments for offense, tempo, fourth-down aggression, defensive focus, and blitz rate.
 - Detailed live play log, player stats, matchup ledger, play explanations, and final box score.
@@ -68,6 +70,7 @@ The game uses a versioned save format and can migrate saves from the original v1
 - `game.css` — complete responsive visual system and animation styling
 - `pokemon-data.js` — bundled Gen 1–3 stats, types, measurements, evolution links, rarity metadata, and sprite paths
 - `game.js` — ratings, draft logic, collection, boxes, evolution, Franchise seasons, depth charts, simulation, and interface
+- `pokemon-gridiron-logo.png` — full-resolution game logo, browser icon, and app icon
 - `README.md` — publishing and feature guide
 
 ## Data and artwork
