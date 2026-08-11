@@ -1,6 +1,6 @@
-# Pokémon Gridiron v2.1.0
+# Pokémon Gridiron v3.0.0
 
-Pokémon Gridiron is a polished, private 11-on-11 football simulator and collection game featuring the complete first three generations: National Pokédex #001–#386.
+Pokémon Gridiron is a complete 11-on-11 football simulator, franchise, and collection game featuring National Pokédex #001–#898: every base species from Generations 1–8.
 
 ## Publish on GitHub Pages
 
@@ -10,71 +10,72 @@ Pokémon Gridiron is a polished, private 11-on-11 football simulator and collect
 4. Under **Build and deployment**, choose **Deploy from a branch**.
 5. Select your main branch and the `/ (root)` folder, then save.
 
-No build command, package installation, database, or server is required. `index.html` launches the complete game.
+No build command, package installation, database, Firebase project, or server is required. `index.html` launches the complete game.
 
-## Two complete modes
+## Franchise mode
 
-### Franchise
-
-- Start with a deliberately weak 25-Pokémon base team.
+- Start with a deliberately low-rated but position-balanced 25-Pokémon base team.
 - Play a five-week round-robin season against five CPU clubs.
-- Follow a live table with wins, losses, ties, points for, points against, and point differential.
-- Earn a placement reward after Week 5:
+- Earn League Credits after every game from the result, winning margin, and offensive production.
+- Every win guarantees at least 1,000 LC, enough to buy a Poké Ball Box.
+- Spend credits in the Box Shop:
+  - Poké Ball Box: 1,000 LC
+  - Great Ball Box: 2,600 LC
+  - Ultra Ball Box: 6,000 LC
+  - Master Ball Boxes remain exclusive to first-place season finishes.
+- Earn an additional placement reward after Week 5:
   - 1st: Master Ball Box
   - 2nd: Ultra Ball Box
   - 3rd: two Great Ball Boxes
   - 4th: Great Ball Box
   - 5th: two Poké Ball Boxes
   - 6th: Poké Ball Box
-- Open three-card boxes in a dedicated reward room.
-- Poké Ball Boxes contain only unevolved, non-legendary Pokémon.
-- Master Ball Boxes can contain any Pokémon and have a boosted legendary slot.
-- Duplicates become +70 development impact for the card already owned.
-- Manage a growing club collection and a separate 25-card active roster.
-- Auto-build a balanced active roster or manually replace any active card.
-- Keep a persistent offense, defense, and special-teams depth chart.
-- Evolve eligible cards through either game/win milestones or individual impact production.
-- Choose branching evolutions, including Eevee, Tyrogue, Wurmple, Gloom, and Poliwhirl paths available within Generations 1–3.
-- Carry unopened boxes, collected cards, development, and season history into future seasons.
+- Poké Ball Boxes contain base, non-legendary Pokémon. Master Ball Boxes can contain any Pokémon and include a boosted legendary slot.
+- Open three-card boxes; duplicate pulls become +70 development impact.
+- Manage a permanent collection, a 25-card active roster, and offense/defense/special-teams depth charts.
+- Evolve eligible cards through game-and-win milestones or individual production. Cross-generation and branching evolution paths are included through Gen 8.
+- Follow full-league season leaders for passing, rushing, receiving, touchdowns, tackles, sacks, and interceptions.
+- Track the MVP, Offensive Player of the Year, Defensive Player of the Year, and Trench Trophy races; final winners are archived by season.
+- Chase permanent single-game and season record books. Simulated CPU matchups generate player production, so all six clubs appear in league history.
 
-### Random Draft
+## Random Draft mode
 
-- Run the original six-team, 150-pick snake draft with the full 386-Pokémon pool.
-- Draft manually or instantly generate all six rosters.
-- Build a unique 25-player club, choose any CPU opponent, set the depth chart, and play a complete exhibition.
+- Run a six-team, 150-pick snake draft using the full 898-Pokémon pool.
+- Filter the draft by any generation from 1–8.
+- Draft manually or instantly generate all six unique rosters.
+- Choose an opponent, set the depth chart, and play a complete exhibition with no long-term franchise commitment.
 
-## Rebuilt live gameplay
+## Live gameplay
 
 - 12 named offensive calls across Singleback, I-Form, Shotgun, and Trips formations.
 - Context-aware coach suggestions for short yardage, third-and-long, midfield, and the red zone.
-- A real huddle phase before each snap with manual play selection.
-- Slower 1× broadcast pacing plus 2× and 4× fast-forward controls.
-- Wider, staggered offense and defense spacing with visible position labels.
-- Formation-specific alignment and route movement for slants, mesh, screens, crosses, verticals, wheels, inside zone, power, stretch, and jet action.
-- Pre-snap idle motion, snap phase, route development, ball travel, pursuit, and a delayed result reveal.
-- Multi-stage releases, blocking engagement, pursuit, ball flight, and contact animations make each play develop smoothly instead of jumping straight to the result.
-- A protected **Sim to End** option resolves every remaining snap instantly while preserving the current score, statistics, fatigue, Franchise progression, standings, and rewards.
-- Complete downs, distance, game clock, punts, field goals, touchdowns, turnovers, penalties, overtime, fatigue, substitutions, and type matchup modifiers.
-- Quarter reports with coordinator notes and adjustments for offense, tempo, fourth-down aggression, defensive focus, and blitz rate.
-- Detailed live play log, player stats, matchup ledger, play explanations, and final box score.
+- Wider formation spacing, visible positions, pre-snap motion, staged routes, ball flight, pursuit, blocking, and contact.
+- Manual 1× broadcast pacing plus 2× and 4× fast-forward controls.
+- **Sim to End** resolves every remaining snap with balanced strategy-driven play calling while preserving statistics, fatigue, development, credits, standings, awards, and records.
+- Full downs, distance, clock, punts, field goals, touchdowns, turnovers, penalties, overtime, fatigue, substitutions, and type-matchup modifiers.
+- Quarter reports include coordinator notes and adjustments for offense, tempo, fourth downs, defensive focus, and blitz rate.
+
+## Player profiles
+
+The persistent **Players** control in the header opens a searchable National Pokédex directory from any screen. Search by name or Pokédex number, filter by generation, and open any profile. League leaderboards, collection cards, depth charts, matchup views, and stat tables also link directly to profiles. Profiles show base stats, football attributes, position fits, Franchise development, and current-season production.
 
 ## Saving
 
-Franchise and Quick Draft progress autosave in the browser on the current device. Firebase is not required for this single-device release. Firebase would only be needed later for accounts, cross-device cloud saves, or online leaderboards.
+Franchise and Quick Draft progress autosave in the browser on the current device. v2.1 Franchise saves upgrade in place without losing collections, depth charts, boxes, development, or live games. New economy and history fields are added automatically.
 
-The game uses a versioned save format and can migrate saves from the original v1.1 release.
+Firebase is only needed if a future release adds accounts, cross-device cloud saves, shared markets, or online leaderboards.
 
 ## Files
 
 - `index.html` — application entry point and accessible app shell
-- `game.css` — complete responsive visual system and animation styling
-- `pokemon-data.js` — bundled Gen 1–3 stats, types, measurements, evolution links, rarity metadata, and sprite paths
-- `game.js` — ratings, draft logic, collection, boxes, evolution, Franchise seasons, depth charts, simulation, and interface
-- `pokemon-gridiron-logo.png` — full-resolution game logo, browser icon, and app icon
+- `game.css` — responsive interface, field, animation, shop, leaderboard, records, and profile styling
+- `pokemon-data.js` — bundled Gen 1–8 stats, types, measurements, evolution links, rarity metadata, and artwork paths
+- `game.js` — ratings, draft, collection, evolution, economy, Franchise seasons, stats, awards, records, live simulation, and UI
+- `pokemon-gridiron-logo.png` — game logo, browser icon, and app icon
 - `README.md` — publishing and feature guide
 
 ## Data and artwork
 
-The game bundles its Pokémon data for all gameplay logic. Artwork URLs use the community-run PokéAPI sprite repository on `raw.githubusercontent.com`, so an internet connection is needed when artwork is first loaded. Saves and simulation logic remain entirely in the browser.
+All gameplay data is bundled. Artwork URLs use the community-run PokéAPI sprite repository on `raw.githubusercontent.com`, so an internet connection is needed when artwork first loads. Saves and all game logic remain in the browser.
 
 This is an unofficial, noncommercial private fan project. Pokémon and Pokémon character names are trademarks of their respective owners.

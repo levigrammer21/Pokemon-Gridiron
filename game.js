@@ -1,14 +1,14 @@
 (() => {
   "use strict";
 
-  const POKEMON = (window.POKEMON_386 || window.POKEMON_151 || []).map((p) => ({ ...p }));
+  const POKEMON = (window.POKEMON_898 || window.POKEMON_386 || window.POKEMON_151 || []).map((p) => ({ ...p }));
   const app = document.getElementById("app");
   const modalShell = document.getElementById("modalShell");
   const modalContent = document.getElementById("modalContent");
   const SAVE_KEY = "pokemon-gridiron-save-v4";
   const LEGACY_SAVE_KEY = "pokemon-gridiron-151-save-v2";
-  const VERSION = 9;
-  const DISPLAY_VERSION = "2.1.0";
+  const VERSION = 10;
+  const DISPLAY_VERSION = "3.0.0";
   const TEAM_COUNT = 6;
   const ROSTER_SIZE = 25;
   const TOTAL_PICKS = TEAM_COUNT * ROSTER_SIZE;
@@ -75,6 +75,7 @@
     ultraball:{ name:"Ultra Ball Box", color:"#f4c84e", note:"Three non-legendary Pokémon with two guaranteed rare-or-better pulls." },
     masterball:{ name:"Master Ball Box", color:"#b784ff", note:"Any Pokémon can appear. One slot has a boosted legendary chance." }
   };
+  const BOX_PRICES = { pokeball:1000, greatball:2600, ultraball:6000 };
   const COLORS = ["#52dcff","#ff775f","#ffc857","#a78bfa","#4ee3a1","#f472b6"];
   const AI_CLUBS = [
     { id:"indigo", name:"Indigo Inferno", color:"#ff775f" },
@@ -105,6 +106,7 @@
   const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
   const ordinal = (n) => `${n}${n%10===1&&n%100!==11?"st":n%10===2&&n%100!==12?"nd":n%10===3&&n%100!==13?"rd":"th"}`;
   const formatClock = (seconds) => `${Math.floor(Math.max(0,seconds)/60)}:${String(Math.max(0,seconds)%60).padStart(2,"0")}`;
+  const formatCredits = (value) => Math.max(0,Math.floor(Number(value)||0)).toLocaleString("en-US");
   const teamInitials = (name) => name.split(/\s+/).map((word)=>word[0]).join("").slice(0,2).toUpperCase();
   const byId = Object.fromEntries(POKEMON.map((p) => [p.id,p]));
 
@@ -212,8 +214,26 @@
       humanRoster:[], cpuRoster:[], draftPicks:[], draftIndex:0, search:"", typeFilter:"all", draftGen:"all", sort:"fit",
       humanLineup:null, cpuLineup:null, rosterTab:"offense", selectedSlot:null, returnToReport:false,
       game:null, sidebarTab:"plays", postgameTab:"summary", speed:1, autoplay:false, sound:false,
-      franchise:null, collectionSearch:"", collectionGen:"all", collectionSort:"rating", lastScreen:"home"
+      franchise:null, collectionSearch:"", collectionGen:"all", collectionSort:"rating", statsTab:"leaders",
+      playerSearch:"", playerGen:"all", lastScreen:"home"
     };
+  }
+
+  function emptyRecordBook() { return { singleGame:{}, season:{} }; }
+
+  function normalizeFranchiseData(f) {
+    if (!f) return f;
+    f.credits = Number.isFinite(Number(f.credits)) ? Math.max(0,Math.floor(Number(f.credits))) : 0;
+    f.records ||= {};
+    f.seasonStats ||= {};
+    f.awards ||= null;
+    f.seasonArchive ||= [];
+    f.recordBook ||= emptyRecordBook();
+    f.recordBook.singleGame ||= {};
+    f.recordBook.season ||= {};
+    f.history ||= [];
+    f.boxes ||= [];
+    return f;
   }
 
   let state = defaultState();
@@ -223,7 +243,12 @@
   function loadSaved() {
     try {
       const saved = JSON.parse(localStorage.getItem(SAVE_KEY));
-      if (saved?.version === VERSION) return saved;
+      if (saved?.version >= 9) {
+        const migrated = { ...defaultState(), ...saved, version:VERSION, autoplay:false };
+        if (migrated.game) migrated.game.animating=false;
+        normalizeFranchiseData(migrated.franchise);
+        return migrated;
+      }
       const legacy = JSON.parse(localStorage.getItem(LEGACY_SAVE_KEY));
       if (!legacy?.version) return null;
       return { ...defaultState(), ...legacy, version:VERSION, mode:"quick", franchise:null, autoplay:false };
@@ -275,7 +300,7 @@
     clearTimeout(autoTimer);
     document.documentElement.style.setProperty("--human",state.teamColor);
     document.documentElement.style.setProperty("--cpu",state.cpuColor);
-    const renderers = { home:renderHome, draft:renderDraft, roster:renderRoster, game:renderGame, report:renderReport, postgame:renderPostgame, franchise:renderFranchise, collection:renderCollection, boxes:renderBoxes };
+    const renderers = { home:renderHome, draft:renderDraft, roster:renderRoster, game:renderGame, report:renderReport, postgame:renderPostgame, franchise:renderFranchise, collection:renderCollection, boxes:renderBoxes, leagueStats:renderLeagueStats };
     (renderers[state.screen] || renderHome)();
     const soundButton=document.getElementById("soundToggle");
     if(soundButton){soundButton.textContent=state.sound?"♫":"♪";soundButton.setAttribute("aria-pressed",String(state.sound));}
@@ -293,30 +318,30 @@
     app.innerHTML = `
       <section class="hero-grid mode-home">
         <div class="hero-copy">
-          <p class="eyebrow">Three regions · 386 collectible players · six-club league</p>
+          <p class="eyebrow">Eight regions · 898 collectible players · six-club league</p>
           <h1 class="display-title">Build a dynasty.<br><span>Call every play.</span></h1>
-          <p class="lede">Collect Pokémon from Kanto, Johto, and Hoenn, develop them through real game production, and chase better reward boxes every season—or jump into the original random draft for a one-night roster.</p>
+          <p class="lede">Collect Pokémon from Kanto through Galar, develop them through real game production, earn League Credits, and chase better reward boxes every season—or jump into the original random draft for a one-night roster.</p>
           <div class="hero-actions">
             <button class="primary-button gold" data-action="${franchiseExists?"resume-franchise":"focus-setup"}">${franchiseExists?"Resume franchise":"Start a franchise"}</button>
             <button class="secondary-button" data-action="focus-quick">Quick Draft</button>
             ${continueLabel ? `<button class="secondary-button" data-action="continue-save">${continueLabel}</button>` : ""}
           </div>
           <div class="feature-row">
-            <span><i>386</i> Gen 1–3 Pokédex</span>
+            <span><i>898</i> Gen 1–8 Pokédex</span>
             <span><i>2</i> Complete game modes</span>
             <span><i>12</i> Offensive play calls</span>
           </div>
           <div class="mode-cards" id="quickModes">
-            <article class="mode-card franchise-card"><span class="mode-kicker">LONG-TERM MODE</span><h2>Franchise</h2><p>Begin with a struggling 25-player club. Play a five-game season, climb the table, earn placement boxes, manage your collection, and evolve proven starters.</p><div class="mode-tags"><span>Local autosave</span><span>Season rewards</span><span>Evolution</span></div></article>
-            <article class="mode-card"><span class="mode-kicker">QUICK MODE</span><h2>Random Draft</h2><p>Run the six-team, 150-pick snake draft with the full 386-player pool. Build a lineup, choose an opponent, and coach one complete exhibition.</p><div class="mode-card-actions"><button class="secondary-button" data-action="start-draft">Draft manually</button><button class="quiet-button" data-action="quick-exhibition">Instant random team</button></div></article>
+            <article class="mode-card franchise-card"><span class="mode-kicker">LONG-TERM MODE</span><h2>Franchise</h2><p>Begin with a struggling 25-player club. Play a five-game season, earn credits and placement boxes, chase league awards and records, and evolve proven starters.</p><div class="mode-tags"><span>Local autosave</span><span>Box shop</span><span>Awards & records</span></div></article>
+            <article class="mode-card"><span class="mode-kicker">QUICK MODE</span><h2>Random Draft</h2><p>Run the six-team, 150-pick snake draft with the full 898-player pool. Build a lineup, choose an opponent, and coach one complete exhibition.</p><div class="mode-card-actions"><button class="secondary-button" data-action="start-draft">Draft manually</button><button class="quiet-button" data-action="quick-exhibition">Instant random team</button></div></article>
           </div>
         </div>
         <div class="hero-board">
           <div class="hero-scorebug"><div><strong>CERULEAN</strong><span>Home · 17</span></div><div class="score-mid"><strong>2:14</strong><span>2nd · Q4</span></div><div><strong>INDIGO</strong><span>Away · 16</span></div></div>
           <img class="hero-pokemon one" src="${byId[9].art}" alt="Blastoise" />
-          <img class="hero-pokemon two" src="${byId[257].art}" alt="Blaziken" />
-          <img class="hero-pokemon three" src="${byId[248].art}" alt="Tyranitar" />
-          <img class="hero-pokemon four" src="${byId[282].art}" alt="Gardevoir" />
+          <img class="hero-pokemon two" src="${byId[248].art}" alt="Tyranitar" />
+          <img class="hero-pokemon three" src="${byId[635].art}" alt="Hydreigon" />
+          <img class="hero-pokemon four" src="${byId[823].art}" alt="Corviknight" />
           <div class="team-setup" id="teamSetup">
             <p class="eyebrow">Your club identity</p>
             <div class="setup-row">
@@ -365,18 +390,18 @@
     state.leagueTeams=createLeagueTeams(state.teamName,state.teamColor);
     state.leagueTeams[0].roster=[...f.active];
     const season=f.season||1;
+    const leagueUsed=new Set(f.active);
     for(let teamIndex=1;teamIndex<TEAM_COUNT;teamIndex++){
       const roster=state.leagueTeams[teamIndex].roster;
-      const teamUsed=new Set(f.active);
       while(roster.length<ROSTER_SIZE){
         const target=DRAFT_BLUEPRINT[roster.length];
         const cap=Math.min(92,64+season*2);
-        let pool=POKEMON.filter((p)=>!teamUsed.has(p.id)&&p.best.rating<=cap&&(!p.legendary||season>=4));
-        if(pool.length<20)pool=POKEMON.filter((p)=>!teamUsed.has(p.id)&&p.best.rating<=cap+3&&!p.legendary);
+        let pool=POKEMON.filter((p)=>!leagueUsed.has(p.id)&&p.best.rating<=cap&&(!p.legendary||season>=4));
+        if(pool.length<20)pool=POKEMON.filter((p)=>!leagueUsed.has(p.id)&&p.best.rating<=cap+3&&!p.legendary);
         const ranked=pool.map((p)=>[p,candidateTargetScore(p,target)+p.best.rating*.12+Math.random()*7]).sort((a,b)=>b[1]-a[1]);
         const choice=ranked[Math.floor(Math.random()*Math.min(12,ranked.length))]?.[0];
         if(!choice)break;
-        roster.push(choice.id);teamUsed.add(choice.id);
+        roster.push(choice.id);leagueUsed.add(choice.id);
       }
     }
     state.leagueLineups=state.leagueTeams.map((team)=>autoAssign(team.roster));
@@ -394,23 +419,27 @@
     return rounds;
   }
 
-  function simulateCpuMatchup(a,b) {
+  function simulateCpuMatchup(a,b,week) {
     const gradeA=teamRosterGrade(state.leagueTeams[a]),gradeB=teamRosterGrade(state.leagueTeams[b]);
     const baseA=13+Math.floor(Math.random()*17),baseB=13+Math.floor(Math.random()*17);
     let scoreA=Math.max(3,baseA+Math.round((gradeA-gradeB)*.45));let scoreB=Math.max(3,baseB+Math.round((gradeB-gradeA)*.45));
     if(scoreA===scoreB)scoreA+=3;
     recordStanding(state.franchise.standings[a],scoreA,scoreB);recordStanding(state.franchise.standings[b],scoreB,scoreA);
+    recordSeasonTeamGame(simulateCpuTeamGame(a,scoreA,scoreB),a,week,b);
+    recordSeasonTeamGame(simulateCpuTeamGame(b,scoreB,scoreA),b,week,a);
     return {a,b,scoreA,scoreB,played:true};
   }
 
   function setupFranchiseSeason() {
     const f=state.franchise;
+    normalizeFranchiseData(f);
     buildFranchiseLeague();
     const rounds=franchiseRounds();
     f.schedule=rounds.map((matchups,week)=>{const [human]=matchups.filter((pair)=>pair.includes(0));const opponentIndex=human.find((index)=>index!==0);return {week:week+1,opponentIndex,played:false,humanScore:null,cpuScore:null,result:null};});
     f.cpuSchedule=rounds.map((matchups)=>matchups.filter((pair)=>!pair.includes(0)).map(([a,b])=>({a,b,played:false,scoreA:null,scoreB:null})));
     f.standings=state.leagueTeams.map(freshStanding);
     f.seasonComplete=false;f.lastReward=null;f.lastPlacement=null;
+    f.seasonStats ||= {};f.awards=null;
     state.opponentIndex=f.schedule[0].opponentIndex;syncOpponent();
   }
 
@@ -419,19 +448,33 @@
     if(input?.value.trim())state.teamName=input.value.trim().slice(0,26);
     if(!state.franchise&&savedState?.franchise){resumeFranchise();return;}
     if(state.franchise){resumeFranchise();return;}
-    const records=Object.fromEntries(FRANCHISE_STARTERS.map((id)=>[id,emptyProgress()]));
+    const starters=createBaseFranchiseRoster();
+    const records=Object.fromEntries(starters.map((id)=>[id,emptyProgress()]));
     state.franchise={
-      season:1,owned:[...FRANCHISE_STARTERS],discovered:[...FRANCHISE_STARTERS],active:[...FRANCHISE_STARTERS],records,
+      season:1,owned:[...starters],discovered:[...starters],active:[...starters],records,
       boxes:[{id:`welcome-${Date.now()}`,type:"pokeball",source:"Franchise welcome box"}],lastOpen:null,recentAdds:[],history:[],
-      schedule:[],standings:[],seasonComplete:false,lastReward:null,lastPlacement:null
+      schedule:[],standings:[],seasonComplete:false,lastReward:null,lastPlacement:null,credits:0,
+      seasonStats:{},awards:null,seasonArchive:[],recordBook:emptyRecordBook()
     };
     state.mode="franchise";state.game=null;state.postgameTab="summary";setupFranchiseSeason();state.screen="franchise";save();render();
     toast("Franchise created. Your base roster and welcome box are ready.");
   }
 
+  function createBaseFranchiseRoster() {
+    const chosen=[],generationCounts={};
+    for(const target of DRAFT_BLUEPRINT){
+      let pool=POKEMON.filter((p)=>p.stage===0&&!p.legendary&&p.rarity==="common"&&p.best.rating<=64&&!chosen.includes(p.id));
+      if(!pool.length)pool=POKEMON.filter((p)=>p.stage===0&&!p.legendary&&p.best.rating<=66&&!chosen.includes(p.id));
+      pool.sort((a,b)=>(candidateTargetScore(b,target)-(generationCounts[b.generation]||0)*1.4)-(candidateTargetScore(a,target)-(generationCounts[a.generation]||0)*1.4)||a.id-b.id);
+      const pick=pool[0];if(!pick)break;chosen.push(pick.id);generationCounts[pick.generation]=(generationCounts[pick.generation]||0)+1;
+    }
+    return chosen.length===ROSTER_SIZE?chosen:[...FRANCHISE_STARTERS];
+  }
+
   function resumeFranchise() {
     if(!state.franchise&&savedState?.franchise)state=JSON.parse(JSON.stringify(savedState));
     if(!state.franchise){startFranchise();return;}
+    normalizeFranchiseData(state.franchise);
     state.mode="franchise";state.teamName=state.leagueTeams?.[0]?.name||state.teamName;state.humanRoster=[...state.franchise.active];
     if(!state.leagueTeams?.length||!state.leagueTeams[1]?.roster?.length)setupFranchiseSeason();
     state.screen="franchise";state.autoplay=false;save();render();
@@ -475,7 +518,7 @@
 
   function renderFranchiseNav(active="home") {
     const count=state.franchise?.boxes?.length||0;
-    return `<nav class="franchise-nav" aria-label="Franchise navigation"><button class="${active==="home"?"active":""}" data-action="franchise-home">League home</button><button class="${active==="collection"?"active":""}" data-action="show-collection">Collection</button><button class="${active==="roster"?"active":""}" data-action="franchise-roster">Depth chart</button><button class="${active==="boxes"?"active":""}" data-action="show-boxes">Boxes${count?` <b>${count}</b>`:""}</button></nav>`;
+    return `<nav class="franchise-nav" aria-label="Franchise navigation"><button class="${active==="home"?"active":""}" data-action="franchise-home">League home</button><button class="${active==="collection"?"active":""}" data-action="show-collection">Collection</button><button class="${active==="roster"?"active":""}" data-action="franchise-roster">Depth chart</button><button class="${active==="stats"?"active":""}" data-action="show-league-stats">Leaders</button><button class="${active==="boxes"?"active":""}" data-action="show-boxes">Boxes${count?` <b>${count}</b>`:""}</button></nav>`;
   }
 
   function renderFranchise() {
@@ -490,7 +533,7 @@
     app.innerHTML=`${renderFranchiseNav("home")}
       <section class="franchise-hero" style="--club:${state.teamColor}"><div><p class="eyebrow">Season ${f.season} · ${f.seasonComplete?`Final placement: ${ordinal(f.lastPlacement)}`:`Week ${Math.min(played+1,5)} of 5`}</p><h1>${esc(state.teamName)}</h1><p>${f.seasonComplete?`${f.lastReward?.label||"Season complete"} added to your box room.`:"Build the roster one game at a time. Every active player earns development from wins and production."}</p><div class="hero-actions">${f.seasonComplete?`<button class="primary-button gold" data-action="start-next-season">Begin season ${f.season+1}</button>`:`<button class="primary-button" data-action="prepare-franchise-game">Gameplan for Week ${played+1}</button>`}<button class="secondary-button" data-action="show-collection">Manage collection</button></div></div>
       <div class="franchise-record"><span>RECORD</span><strong>${record.w}–${record.l}${record.t?`–${record.t}`:""}</strong><small>${placement?ordinal(placement):"—"} in the league</small></div></section>
-      <section class="franchise-metrics"><article><span>Active roster</span><strong>${collectionGrade}</strong><small>club OVR · ${f.active.length}/25 cards</small></article><article><span>Collection</span><strong>${f.discovered.length}</strong><small>of 386 discovered</small></article><article><span>Reward boxes</span><strong>${f.boxes.length}</strong><small>${f.boxes.length?"ready to open":"earned by season finish"}</small></article><article><span>Evolution ready</span><strong>${ready.length}</strong><small>players met development goals</small></article></section>
+      <section class="franchise-metrics"><article><span>Active roster</span><strong>${collectionGrade}</strong><small>club OVR · ${f.active.length}/25 cards</small></article><article><span>Collection</span><strong>${f.discovered.length}</strong><small>of 898 discovered</small></article><article class="credits-metric"><span>League Credits</span><strong>${formatCredits(f.credits)}</strong><small>1,000 buys a Poké Ball Box</small></article><article><span>Unopened boxes</span><strong>${f.boxes.length}</strong><small>${f.boxes.length?"ready to open":"shop or season rewards"}</small></article><article><span>Evolution ready</span><strong>${ready.length}</strong><small>players met development goals</small></article></section>
       <section class="franchise-grid">
         <article class="franchise-panel next-matchup"><div class="panel-head"><h2 class="panel-title">${next?"Next matchup":"Season complete"}</h2><span class="tiny">${next?`WEEK ${next.week}`:`${ordinal(f.lastPlacement||placement).toUpperCase()} PLACE`}</span></div>${next?`<div class="matchup-lockup">${teamShield(state.teamName,state.teamColor)}<span>VS</span>${teamShield(opponent.name,opponent.color)}<div><strong>${esc(opponent.name)}</strong><small>${teamRosterGrade(opponent)} OVR · ${f.standings[next.opponentIndex].w}–${f.standings[next.opponentIndex].l}</small></div></div><p class="panel-copy">Top threats</p><div class="threat-row">${threats.map((id)=>`<button data-action="profile" data-id="${id}"><img src="${byId[id].sprite}" alt="${esc(byId[id].name)}"><span>${esc(byId[id].name)}<b>${byId[id].best.rating}</b></span></button>`).join("")}</div>`:`<div class="reward-callout"><span class="box-orb ${f.lastReward?.type||"pokeball"}"></span><div><strong>${esc(f.lastReward?.label||"Season reward earned")}</strong><p>Open it now or carry it into next season.</p></div><button class="secondary-button" data-action="show-boxes">Open boxes</button></div>`}</article>
         <article class="franchise-panel standings-panel"><div class="panel-head"><h2 class="panel-title">League table</h2><span class="tiny">W · L · DIFF</span></div><div class="standings-list">${rows.map((row,index)=>`<div class="standing-row ${row.teamIndex===0?"user-team":""}"><b>${index+1}</b><i style="--team-color:${row.color}">${teamInitials(row.name)}</i><span>${esc(row.name)}</span><strong>${row.w}–${row.l}${row.t?`–${row.t}`:""}</strong><em>${row.pf-row.pa>=0?"+":""}${row.pf-row.pa}</em></div>`).join("")}</div></article>
@@ -520,9 +563,9 @@
     cards.sort((a,b)=>state.collectionSort==="dex"?a.id-b.id:state.collectionSort==="name"?a.name.localeCompare(b.name):b.best.rating-a.best.rating);
     const active=new Set(f.active);
     app.className="screen franchise-screen collection-screen";
-    app.innerHTML=`${renderFranchiseNav("collection")}<section class="collection-head"><div><p class="eyebrow">National collection · ${f.discovered.length}/386 discovered</p><h1 class="section-title">Club collection</h1><p class="lede">Your 25 active cards dress for every franchise game. Earn production with them to unlock evolution, or replace them as stronger pulls arrive.</p></div><div class="collection-actions"><button class="secondary-button" data-action="auto-best-roster">Auto-build best 25</button><button class="primary-button" data-action="franchise-roster">Edit depth chart</button></div></section>
+    app.innerHTML=`${renderFranchiseNav("collection")}<section class="collection-head"><div><p class="eyebrow">National collection · ${f.discovered.length}/898 discovered</p><h1 class="section-title">Club collection</h1><p class="lede">Your 25 active cards dress for every franchise game. Earn production with them to unlock evolution, or replace them as stronger pulls arrive.</p></div><div class="collection-actions"><button class="secondary-button" data-action="auto-best-roster">Auto-build best 25</button><button class="primary-button" data-action="franchise-roster">Edit depth chart</button></div></section>
       <section class="collection-summary"><span><b>${f.owned.length}</b> current cards</span><span><b>${f.active.length}</b> active roster</span><span><b>${f.owned.filter(canEvolve).length}</b> ready to evolve</span><span><b>${f.discovered.length}</b> Pokédex entries</span></section>
-      <div class="collection-filters"><input id="collectionSearch" value="${esc(state.collectionSearch)}" placeholder="Search your collection" aria-label="Search collection"><select id="collectionGen"><option value="all">All generations</option>${[1,2,3].map((gen)=>`<option value="${gen}" ${String(state.collectionGen)===String(gen)?"selected":""}>Generation ${gen}</option>`).join("")}</select><select id="collectionSort"><option value="rating" ${state.collectionSort==="rating"?"selected":""}>Best rating</option><option value="dex" ${state.collectionSort==="dex"?"selected":""}>Pokédex order</option><option value="name" ${state.collectionSort==="name"?"selected":""}>Name</option></select></div>
+      <div class="collection-filters"><input id="collectionSearch" value="${esc(state.collectionSearch)}" placeholder="Search your collection" aria-label="Search collection"><select id="collectionGen"><option value="all">All generations</option>${[1,2,3,4,5,6,7,8].map((gen)=>`<option value="${gen}" ${String(state.collectionGen)===String(gen)?"selected":""}>Generation ${gen}</option>`).join("")}</select><select id="collectionSort"><option value="rating" ${state.collectionSort==="rating"?"selected":""}>Best rating</option><option value="dex" ${state.collectionSort==="dex"?"selected":""}>Pokédex order</option><option value="name" ${state.collectionSort==="name"?"selected":""}>Name</option></select></div>
       <section class="collection-grid">${cards.map((p)=>{const r=progressFor(p.id),ready=canEvolve(p.id);return `<article class="collection-card ${active.has(p.id)?"active-card":""} ${ready?"evolution-ready":""}"><div class="collection-card-top"><span>#${String(p.id).padStart(3,"0")} · GEN ${p.generation}</span><b>${active.has(p.id)?"ACTIVE":"RESERVE"}</b></div><button class="collection-art" data-action="profile" data-id="${p.id}"><img src="${p.art}" alt="${esc(p.name)}" loading="lazy"></button><div class="collection-card-body"><div class="collection-name"><div><h3>${esc(p.name)}</h3>${typePills(p)}</div><strong>${p.best.rating}<small>${p.best.position}</small></strong></div><div class="development-track"><span>${esc(evolutionCopy(p.id))}</span><i><i style="width:${p.evos?.length?Math.min(100,Math.max((r.impact/evolutionRequirement(p).impact)*100,(r.games/evolutionRequirement(p).games)*55+(r.wins/evolutionRequirement(p).wins)*45)):100}%"></i></i></div><div class="card-actions">${ready?`<button class="primary-button gold" data-action="evolve-player" data-id="${p.id}">Evolve</button>`:""}${active.has(p.id)?`<span class="active-label">In game roster</span>`:`<button class="secondary-button" data-action="activate-player" data-id="${p.id}">Add to active 25</button>`}</div></div></article>`}).join("")||`<div class="empty-state"><strong>No cards match those filters</strong><p>Try another generation or clear the search.</p></div>`}</section>`;
   }
 
@@ -565,10 +608,36 @@
   function renderBoxes() {
     const f=state.franchise;if(!f){state.screen="home";renderHome();return;}
     app.className="screen franchise-screen boxes-screen";
-    app.innerHTML=`${renderFranchiseNav("boxes")}<section class="collection-head"><div><p class="eyebrow">Season rewards · ${f.boxes.length} unopened</p><h1 class="section-title">Box room</h1><p class="lede">Placement decides the box. Pulls are permanent, and duplicates become development impact for the card you already own.</p></div><button class="secondary-button" data-action="franchise-home">Return to league</button></section>
+    app.innerHTML=`${renderFranchiseNav("boxes")}<section class="collection-head"><div><p class="eyebrow">${formatCredits(f.credits)} League Credits · ${f.boxes.length} unopened</p><h1 class="section-title">Box room & shop</h1><p class="lede">Every game pays League Credits. Buy boxes now or earn premium boxes from your final placement; duplicates become development impact.</p></div><button class="secondary-button" data-action="franchise-home">Return to league</button></section>
+      <section class="box-shop"><div class="panel-head"><div><p class="eyebrow">Spend match earnings</p><h2 class="panel-title">Box shop</h2></div><div class="credit-balance"><span>AVAILABLE</span><strong>${formatCredits(f.credits)} LC</strong></div></div><div class="shop-grid">${["pokeball","greatball","ultraball"].map((type)=>{const info=BOXES[type],price=BOX_PRICES[type],afford=f.credits>=price;return `<article class="shop-card" style="--box:${info.color}"><span class="box-orb small ${type}"></span><div><h3>${esc(info.name)}</h3><p>${esc(info.note)}</p></div><button class="${afford?"primary-button":"secondary-button"}" data-action="buy-box" data-type="${type}" ${afford?"":"disabled"}>${formatCredits(price)} LC</button></article>`}).join("")}</div><p class="shop-note">A win always pays at least 1,000 LC—enough for one Poké Ball Box. Master Ball Boxes remain exclusive to first-place finishes.</p></section>
       ${f.lastOpen?`<section class="box-results"><div class="panel-head"><h2 class="panel-title">Latest box · ${esc(BOXES[f.lastOpen.type].name)}</h2><button class="text-button" data-action="clear-box-results">Dismiss</button></div><div class="pull-grid">${f.lastOpen.results.map((result,index)=>{const p=byId[result.id];return `<article class="pull-card rarity-${p.rarity}" style="--delay:${index*120}ms"><span>${result.duplicate?"DUPLICATE TRAINING":"NEW CARD"}</span><img src="${p.art}" alt="${esc(p.name)}"><h3>${esc(p.name)}</h3><p>${p.best.position} · ${p.best.rating} OVR</p>${result.duplicate?`<small>+70 evolution impact</small>`:`<small>Generation ${p.generation} · ${p.rarity}</small>`}</article>`}).join("")}</div></section>`:""}
-      <section class="box-shelf">${f.boxes.map((box,index)=>{const info=BOXES[box.type];return `<article class="box-card" style="--box:${info.color}"><div class="box-visual"><span class="box-orb ${box.type}"></span><i></i></div><p class="eyebrow">${esc(box.source)}</p><h2>${esc(info.name)}</h2><p>${esc(info.note)}</p><button class="primary-button" data-action="open-box" data-index="${index}">Open box</button></article>`}).join("")||`<div class="empty-state"><strong>No unopened boxes</strong><p>Finish the current five-game season to earn your next reward.</p><button class="primary-button" data-action="franchise-home">View season</button></div>`}</section>
+      <section class="box-shelf">${f.boxes.map((box,index)=>{const info=BOXES[box.type];return `<article class="box-card" style="--box:${info.color}"><div class="box-visual"><span class="box-orb ${box.type}"></span><i></i></div><p class="eyebrow">${esc(box.source)}</p><h2>${esc(info.name)}</h2><p>${esc(info.note)}</p><button class="primary-button" data-action="open-box" data-index="${index}">Open box</button></article>`}).join("")||`<div class="empty-state"><strong>No unopened boxes</strong><p>Use League Credits in the shop or finish the five-game season for a placement reward.</p><button class="primary-button" data-action="franchise-home">View season</button></div>`}</section>
       <section class="reward-ladder"><div class="panel-head"><h2 class="panel-title">Placement rewards</h2><span class="tiny">AWARDED AFTER WEEK 5</span></div><div class="reward-grid">${[1,2,3,4,5,6].map((place)=>{const reward=rewardForPlacement(place);return `<div><b>${place}</b><span class="box-orb small ${reward.type}"></span><strong>${ordinal(place)} place</strong><small>${esc(reward.label)}</small></div>`}).join("")}</div></section>`;
+  }
+
+  function buyBox(type) {
+    const f=state.franchise,price=BOX_PRICES[type];
+    if(!f||!price||!BOXES[type])return;
+    if(f.credits<price){toast(`You need ${formatCredits(price-f.credits)} more League Credits.`);return;}
+    f.credits-=price;
+    f.boxes.push({id:`shop-${type}-${Date.now()}`,type,source:`Box Shop · Season ${f.season}`});
+    save();render();playTone("select");toast(`${BOXES[type].name} purchased. ${formatCredits(f.credits)} LC remain.`);
+  }
+
+  function renderLeagueStats() {
+    const f=state.franchise;if(!f){state.screen="home";renderHome();return;}
+    normalizeFranchiseData(f);
+    const entries=seasonEntries(),tab=state.statsTab||"leaders",week=f.schedule.filter((game)=>game.played).length;
+    const leaderCards=RECORD_CATEGORIES.map((category)=>{
+      const leaders=[...entries].sort((a,b)=>statMetric(b,category.key)-statMetric(a,category.key)).slice(0,5);
+      return `<article class="leader-card"><div class="leader-card-head"><span>${esc(category.short)}</span><small>SEASON ${f.season}</small></div><div class="leader-list">${leaders.map((entry,index)=>{const p=byId[entry.id],value=statMetric(entry,category.key);return `<button class="leader-row" data-action="profile" data-id="${entry.id}"><b>${index+1}</b><img src="${p.sprite}" alt=""><span><strong>${esc(p.name)}</strong><small>${esc(entry.teamName)}</small></span><em>${value}</em></button>`}).join("")||`<div class="empty-state compact"><strong>No stats yet</strong><p>Play Week 1 to open this race.</p></div>`}</div></article>`;
+    }).join("");
+    const awards=f.awards||computeSeasonAwards(false),priorSeasons=f.seasonArchive.filter((season)=>season.season<f.season);
+    const awardsContent=`<section class="awards-grid">${awards.winners.map((winner)=>{const p=byId[winner.id],team=state.leagueTeams[winner.teamIndex];return `<article class="award-card"><span>${awards.finalized?"SEASON WINNER":"CURRENT LEADER"}</span><div class="award-art" style="--award:${team?.color||"#52dcff"}"><img src="${p.art}" alt="${esc(p.name)}"></div><p class="eyebrow">${esc(winner.title)}</p><button data-action="profile" data-id="${winner.id}">${esc(p.name)}</button><small>${esc(winner.teamName)}</small><p>${esc(winner.summary)}</p></article>`}).join("")||`<div class="empty-state"><strong>The award race opens after Week 1</strong><p>Every league game contributes to MVP, offense, defense, and trench voting.</p></div>`}</section>${priorSeasons.length?`<section class="season-history"><div class="panel-head"><h2 class="panel-title">Past award winners</h2><span class="tiny">FRANCHISE HISTORY</span></div>${priorSeasons.map((season)=>`<article><div><b>Season ${season.season}</b><small>${ordinal(season.placement)} place · ${season.record.w}–${season.record.l}${season.record.t?`–${season.record.t}`:""}</small></div><div class="history-awards">${(season.awards?.winners||[]).map((winner)=>`<button data-action="profile" data-id="${winner.id}"><img src="${byId[winner.id].sprite}" alt=""><span>${esc(winner.title)}<b>${esc(byId[winner.id].name)}</b></span></button>`).join("")}</div></article>`).join("")}</section>`:""}`;
+    const recordPanel=(kind,title,subtitle)=>`<article class="record-panel"><div class="panel-head"><div><p class="eyebrow">${esc(subtitle)}</p><h2 class="panel-title">${esc(title)}</h2></div></div><div class="record-list">${RECORD_CATEGORIES.map((category)=>{const record=f.recordBook[kind][category.key];if(!record)return `<div class="record-row empty"><span>${esc(category.label)}</span><small>Not set</small></div>`;const p=byId[record.id];return `<button class="record-row" data-action="profile" data-id="${record.id}"><span><small>${esc(category.label)}</small><strong>${record.value}</strong></span><img src="${p.sprite}" alt=""><span><b>${esc(p.name)}</b><small>${esc(record.teamName)} · S${record.season}${kind==="singleGame"?` W${record.week}`:""}</small></span></button>`}).join("")}</div></article>`;
+    const recordsContent=`<section class="record-book">${recordPanel("singleGame","Single-game records","BEST IN ONE MATCH")}${recordPanel("season","Season records","ALL-TIME FRANCHISE ERA")}</section>`;
+    app.className="screen franchise-screen stats-screen";
+    app.innerHTML=`${renderFranchiseNav("stats")}<section class="collection-head stats-head"><div><p class="eyebrow">Six-club league · Season ${f.season} · ${f.seasonComplete?"Final":"through Week "+week}</p><h1 class="section-title">League history center</h1><p class="lede">Every club and every game feeds the leaderboards, award races, and permanent record book. Select any name to open the full player profile.</p></div><button class="secondary-button" data-action="player-directory">Find any player</button></section><nav class="stats-tabs" aria-label="Statistics sections">${[["leaders","League leaders"],["awards",f.seasonComplete?"Award winners":"Award race"],["records","Record book"]].map(([id,label])=>`<button class="${tab===id?"active":""}" data-action="stats-tab" data-tab="${id}">${label}</button>`).join("")}</nav><section class="stats-content">${tab==="leaders"?`<div class="leaderboard-grid">${leaderCards}</div>`:tab==="awards"?awardsContent:recordsContent}</section>`;
   }
 
   function boxPool(type,slot) {
@@ -595,7 +664,7 @@
 
   function startNextSeason() {
     const f=state.franchise;if(!f?.seasonComplete)return;
-    f.season++;state.game=null;setupFranchiseSeason();state.screen="franchise";save();render();toast(`Season ${f.season} schedule is live.`);
+    f.season++;f.seasonStats={};f.awards=null;state.game=null;setupFranchiseSeason();state.screen="franchise";save();render();toast(`Season ${f.season} schedule is live.`);
   }
 
   function teamAtPick(index) {
@@ -702,7 +771,7 @@
     app.className="screen draft-screen";
     app.innerHTML=`
       <section class="draft-head">
-        <div><p class="eyebrow">Six-club National allocation draft · Gen 1–3</p><h1 class="section-title">Draft room</h1><p class="tiny">Round ${round+1} of ${ROSTER_SIZE} · Pick ${state.draftIndex+1} of ${TOTAL_PICKS} · ${currentTeamIndex===0?`${esc(state.teamName)} are on the clock`:esc(currentTeam?.name||"Draft complete")}</p></div>
+        <div><p class="eyebrow">Six-club National allocation draft · Gen 1–8</p><h1 class="section-title">Draft room</h1><p class="tiny">Round ${round+1} of ${ROSTER_SIZE} · Pick ${state.draftIndex+1} of ${TOTAL_PICKS} · ${currentTeamIndex===0?`${esc(state.teamName)} are on the clock`:esc(currentTeam?.name||"Draft complete")}</p></div>
         <div class="pick-clock"><strong>${ROSTER_SIZE-state.leagueTeams[0].roster.length}</strong><span>YOUR PICKS LEFT</span></div>
         <div class="draft-head-actions"><button class="secondary-button" data-action="auto-draft">Auto-complete</button><button class="quiet-button" data-action="draft-help">Ratings guide</button></div>
       </section>
@@ -712,7 +781,7 @@
           <div class="filter-bar">
             <input id="draftSearch" value="${esc(state.search)}" placeholder="Search name or Pokédex #" aria-label="Search Pokémon" />
             <select id="typeFilter" aria-label="Filter by type"><option value="all">All types</option>${Object.keys(TYPE_COLORS).map((type)=>`<option value="${type}" ${state.typeFilter===type?"selected":""}>${type[0].toUpperCase()+type.slice(1)}</option>`).join("")}</select>
-            <select id="draftGen" aria-label="Filter by generation"><option value="all">All generations</option>${[1,2,3].map((gen)=>`<option value="${gen}" ${String(state.draftGen)===String(gen)?"selected":""}>Generation ${gen}</option>`).join("")}</select>
+            <select id="draftGen" aria-label="Filter by generation"><option value="all">All generations</option>${[1,2,3,4,5,6,7,8].map((gen)=>`<option value="${gen}" ${String(state.draftGen)===String(gen)?"selected":""}>Generation ${gen}</option>`).join("")}</select>
             <select id="sortDraft" aria-label="Sort draft pool"><option value="fit" ${state.sort==="fit"?"selected":""}>Best ${esc(target)} fit</option><option value="dex" ${state.sort==="dex"?"selected":""}>Pokédex order</option><option value="name" ${state.sort==="name"?"selected":""}>Name</option></select>
           </div>
           <div class="pokemon-grid">${available.map((p)=>`
@@ -858,18 +927,41 @@
     const pos=Object.entries(p.football.positions).sort((a,b)=>b[1]-a[1]);
     const fatigue=state.game?.fatigue?.[id];
     const franchiseOwned=state.franchise?.owned?.includes(id);const record=franchiseOwned?progressFor(id):null;
+    const seasonLines=state.franchise?seasonEntries().filter((entry)=>entry.id===id).sort((a,b)=>awardScore(b,"mvp")-awardScore(a,"mvp")):[];
     modalContent.innerHTML=`
       <div class="modal-head"><h2 class="panel-title" id="modalTitle">Player profile</h2><button class="close-button" data-close-modal aria-label="Close">×</button></div>
       <div class="player-profile">
         <div class="profile-art"><img src="${p.art}" alt="${esc(p.name)}"/><p class="eyebrow">#${String(p.id).padStart(3,"0")} · GEN ${p.generation||1} · ${String(p.rarity||"common").toUpperCase()}</p><h2>${esc(p.name)}</h2>${typePills(p)}<p class="tiny">${(p.height/10).toFixed(1)} m · ${(p.weight/10).toFixed(1)} kg${fatigue!=null?` · ${Math.round(fatigue)}% condition`:""}</p></div>
         <div class="profile-body">
           ${franchiseOwned?`<div class="profile-development"><span>FRANCHISE DEVELOPMENT</span><strong>${esc(evolutionCopy(id))}</strong><small>${record.games} games · ${record.wins} wins · ${record.impact} impact · ${record.touchdowns} TD · ${record.tackles} tackles</small>${canEvolve(id)?`<button class="primary-button gold" data-action="evolve-player" data-id="${id}">Evolve now</button>`:""}</div>`:""}
+          ${seasonLines.length?`<div class="profile-season"><p class="ratings-title">Season ${state.franchise.season} production</p>${seasonLines.map((entry)=>`<div><span><b>${esc(entry.teamName)}</b><small>${entry.games} GP · ${entry.passYds} PASS · ${entry.rushYds} RUSH · ${entry.recYds} REC</small></span><strong>${statMetric(entry,"touchdowns")} TD<small>${entry.tackles} TKL · ${entry.sacks} SCK · ${entry.interceptions} INT</small></strong></div>`).join("")}</div>`:""}
           <p class="ratings-title">Pokémon base stats</p><div class="raw-stat-grid">${raw.map(([label,key])=>`<div class="raw-stat"><span>${label}</span><b>${p.stats[key]}</b></div>`).join("")}</div>
           <p class="ratings-title">Football attributes</p><div class="rating-bars">${skills.map((key)=>`<div class="rating-row"><span>${key.replace(/([A-Z])/g," $1")}</span><i class="rating-track"><i style="width:${p.football.skills[key]}%"></i></i><b>${p.football.skills[key]}</b></div>`).join("")}</div>
           <p class="ratings-title" style="margin-top:18px">Position fit</p><div class="position-fits">${pos.map(([key,value])=>`<div class="position-fit"><span>${key}</span><b>${value}</b></div>`).join("")}</div>
         </div>
       </div>`;
     openModal();
+  }
+
+  function renderPlayerDirectoryResults() {
+    const results=document.getElementById("playerDirectoryResults");if(!results)return;
+    const term=(state.playerSearch||"").trim().toLowerCase(),generation=state.playerGen||"all";
+    let pool;
+    if(term){
+      pool=POKEMON.filter((p)=>(p.name.toLowerCase().includes(term)||p.slug.includes(term)||String(p.id).includes(term))&&(generation==="all"||p.generation===Number(generation)));
+      pool.sort((a,b)=>Number(b.name.toLowerCase()===term)-Number(a.name.toLowerCase()===term)||Number(b.name.toLowerCase().startsWith(term))-Number(a.name.toLowerCase().startsWith(term))||a.id-b.id);
+    }else{
+      const leagueIds=[...new Set((state.leagueTeams||[]).flatMap((team)=>team.roster||[]))];
+      pool=(leagueIds.length?leagueIds.map((id)=>byId[id]).filter(Boolean):[...POKEMON].sort((a,b)=>b.best.rating-a.best.rating)).filter((p)=>generation==="all"||p.generation===Number(generation));
+    }
+    pool=pool.slice(0,60);
+    results.innerHTML=pool.map((p)=>{const owned=state.franchise?.owned?.includes(p.id),leagueTeam=(state.leagueTeams||[]).find((team)=>team.roster?.includes(p.id));return `<button class="directory-player" data-action="profile" data-id="${p.id}"><img src="${p.sprite}" alt=""><span><strong>${esc(p.name)}</strong><small>#${String(p.id).padStart(3,"0")} · Gen ${p.generation}${leagueTeam?` · ${esc(leagueTeam.name)}`:""}</small></span><b>${p.best.rating}<small>${p.best.position}</small></b>${owned?`<i>OWNED</i>`:""}</button>`}).join("")||`<div class="empty-state"><strong>No player found</strong><p>Try a name, Pokédex number, or another generation.</p></div>`;
+    const count=document.getElementById("directoryCount");if(count)count.textContent=`${pool.length}${term?" MATCHES":" FEATURED"}`;
+  }
+
+  function showPlayerDirectory() {
+    modalContent.innerHTML=`<div class="modal-head"><div><p class="eyebrow">National Pokédex · 898 profiles</p><h2 class="panel-title" id="modalTitle">Find a player</h2></div><button class="close-button" data-close-modal aria-label="Close">×</button></div><div class="directory-tools"><input id="playerDirectorySearch" value="${esc(state.playerSearch||"")}" placeholder="Search name or Pokédex number" aria-label="Search all players"><select id="playerDirectoryGen" aria-label="Filter profiles by generation"><option value="all">All generations</option>${[1,2,3,4,5,6,7,8].map((gen)=>`<option value="${gen}" ${String(state.playerGen)===String(gen)?"selected":""}>Generation ${gen}</option>`).join("")}</select><span id="directoryCount"></span></div><div class="player-directory" id="playerDirectoryResults"></div>`;
+    openModal();renderPlayerDirectoryResults();setTimeout(()=>document.getElementById("playerDirectorySearch")?.focus(),0);
   }
 
   function showRatingsGuide() {
@@ -891,6 +983,147 @@
 
   function newPlayerStat() {
     return { passAtt:0,passComp:0,passYds:0,passTD:0,ints:0,rushAtt:0,rushYds:0,rushTD:0,targets:0,receptions:0,recYds:0,recTD:0,drops:0,blocksWon:0,blocksLost:0,pressuresAllowed:0,sacksAllowed:0,tackles:0,missedTackles:0,sacks:0,pressures:0,interceptions:0,passesDefended:0,blocksShed:0,typeWins:0,points:0 };
+  }
+
+  const RECORD_CATEGORIES = [
+    {key:"passing",label:"Passing yards",short:"PASS YDS"},
+    {key:"rushing",label:"Rushing yards",short:"RUSH YDS"},
+    {key:"receiving",label:"Receiving yards",short:"REC YDS"},
+    {key:"touchdowns",label:"Total touchdowns",short:"TOTAL TD"},
+    {key:"tackles",label:"Tackles",short:"TACKLES"},
+    {key:"sacks",label:"Sacks",short:"SACKS"},
+    {key:"interceptions",label:"Interceptions",short:"INT"}
+  ];
+
+  function statMetric(stat,key) {
+    if(key==="passing")return stat.passYds||0;
+    if(key==="rushing")return stat.rushYds||0;
+    if(key==="receiving")return stat.recYds||0;
+    if(key==="touchdowns")return (stat.passTD||0)+(stat.rushTD||0)+(stat.recTD||0);
+    return stat[key]||0;
+  }
+
+  function creditPayoutForGame(g) {
+    const diff=g.scores.human-g.scores.cpu;
+    const result=diff>0?"W":diff<0?"L":"T";
+    const base=result==="W"?1000:result==="T"?650:350;
+    const margin=result==="W"?Math.min(300,diff*15):result==="L"&&Math.abs(diff)<=7?100:result==="T"?100:0;
+    const production=Math.min(200,Math.floor((g.teamStats?.human?.totalYards||0)/75)*25);
+    return {result,base,margin,production,total:base+margin+production};
+  }
+
+  function allocateInteger(total,ids,weights=[]) {
+    const players=ids.filter(Boolean),result={};
+    if(!players.length||total<=0)return result;
+    const normalized=players.map((_,index)=>Math.max(.01,weights[index]??1));
+    const weightTotal=normalized.reduce((sum,value)=>sum+value,0);let remaining=Math.round(total);
+    players.forEach((id,index)=>{
+      const amount=index===players.length-1?remaining:Math.min(remaining,Math.max(0,Math.round(total*normalized[index]/weightTotal)));
+      result[id]=(result[id]||0)+amount;remaining-=amount;
+    });
+    return result;
+  }
+
+  function simulateCpuTeamGame(teamIndex,pointsFor,pointsAgainst) {
+    const team=state.leagueTeams[teamIndex],roster=team?.roster||[],lineup=state.leagueLineups[teamIndex]||autoAssign(roster);
+    const stats=Object.fromEntries(roster.map((id)=>[id,newPlayerStat()]));
+    const ensure=(id)=>stats[id]||(stats[id]=newPlayerStat());
+    const rand=(min,max)=>Math.floor(Math.random()*(max-min+1))+min;
+    const qb=lineup.offense.QB,rb=lineup.offense.RB;
+    const receivers=[lineup.offense.WR1,lineup.offense.WR2,lineup.offense.WR3,lineup.offense.TE,rb].filter(Boolean);
+    const totalTD=clamp(Math.round(pointsFor/7),0,6);
+    const passTD=clamp(Math.round(totalTD*(.52+Math.random()*.28)),0,totalTD);
+    const rushTD=totalTD-passTD;
+    const passAtt=rand(22,36),passComp=clamp(Math.round(passAtt*(.55+Math.random()*.18)),10,passAtt);
+    const passYds=clamp(Math.round(125+pointsFor*4+Math.random()*145),95,410);
+    const rushYds=clamp(Math.round(45+pointsFor*2.1+Math.random()*90),35,225);
+    const qbStat=ensure(qb);qbStat.passAtt=passAtt;qbStat.passComp=passComp;qbStat.passYds=passYds;qbStat.passTD=passTD;qbStat.ints=Math.random()<.34?rand(1,Math.random()<.15?2:1):0;
+    qbStat.rushAtt=rand(2,7);qbStat.rushYds=rand(3,38);
+    const rbStat=ensure(rb);rbStat.rushAtt=rand(13,25);rbStat.rushYds=Math.max(0,rushYds-qbStat.rushYds);
+    const rushScores=allocateInteger(rushTD,[rb,qb],[.82,.18]);Object.entries(rushScores).forEach(([id,value])=>ensure(Number(id)).rushTD=value);
+    const catchShares=allocateInteger(passComp,receivers,[1.22,1.05,.83,.77,.64]);
+    const yardShares=allocateInteger(passYds,receivers,[1.34,1.12,.9,.72,.58]);
+    const tdShares=allocateInteger(passTD,receivers,[1.25,1.05,.8,.75,.55]);
+    receivers.forEach((id)=>{const stat=ensure(id);stat.receptions=catchShares[id]||0;stat.targets=stat.receptions+rand(0,3);stat.recYds=yardShares[id]||0;stat.recTD=tdShares[id]||0;stat.drops=Math.random()<.18?1:0;});
+    [lineup.offense.LT,lineup.offense.LG,lineup.offense.C,lineup.offense.RG,lineup.offense.RT].filter(Boolean).forEach((id)=>{const stat=ensure(id);stat.blocksWon=rand(4,11);stat.blocksLost=rand(0,3);stat.pressuresAllowed=rand(0,2);stat.sacksAllowed=Math.random()<.13?1:0;});
+    const defense=[lineup.defense.LE,lineup.defense.DT1,lineup.defense.DT2,lineup.defense.RE,lineup.defense.WLB,lineup.defense.MLB,lineup.defense.SLB,lineup.defense.CB1,lineup.defense.CB2,lineup.defense.FS,lineup.defense.SS].filter(Boolean);
+    const tackleShares=allocateInteger(rand(43,67),defense,[.75,.7,.7,.75,1.2,1.45,1.18,.72,.72,.95,1.02]);
+    defense.forEach((id)=>{const stat=ensure(id);stat.tackles=tackleShares[id]||0;stat.missedTackles=Math.random()<.22?1:0;stat.blocksShed=rand(0,3);});
+    const rushers=[lineup.defense.LE,lineup.defense.DT1,lineup.defense.DT2,lineup.defense.RE,lineup.defense.WLB,lineup.defense.MLB,lineup.defense.SLB].filter(Boolean);
+    const sackTotal=clamp(rand(0,4)+(pointsAgainst<14?1:0),0,5),sackShares=allocateInteger(sackTotal,rushers,[1.25,.9,.9,1.25,.65,.55,.65]);
+    rushers.forEach((id)=>{const stat=ensure(id);stat.sacks=sackShares[id]||0;stat.pressures=stat.sacks+rand(0,3);});
+    const coverage=[lineup.defense.CB1,lineup.defense.CB2,lineup.defense.FS,lineup.defense.SS,lineup.defense.WLB,lineup.defense.MLB,lineup.defense.SLB].filter(Boolean);
+    const intTotal=Math.random()<.55?rand(0,2):0,intShares=allocateInteger(intTotal,coverage,[1.2,1.2,1,1,.45,.4,.45]);
+    coverage.forEach((id)=>{const stat=ensure(id);stat.interceptions=intShares[id]||0;stat.passesDefended=stat.interceptions+rand(0,2);});
+    return stats;
+  }
+
+  function seasonEntry(teamIndex,id) {
+    const f=state.franchise,key=`${teamIndex}:${id}`,team=state.leagueTeams[teamIndex];
+    return f.seasonStats[key]||(f.seasonStats[key]={...newPlayerStat(),id,teamIndex,teamName:team?.name||"Unknown club",games:0});
+  }
+
+  function updateSingleGameRecords(stats,teamIndex,week,opponentIndex) {
+    const f=state.franchise,book=f.recordBook.singleGame,team=state.leagueTeams[teamIndex],opponent=state.leagueTeams[opponentIndex];
+    for(const id of team.roster){
+      const stat=stats[id]||newPlayerStat();
+      for(const category of RECORD_CATEGORIES){
+        const value=statMetric(stat,category.key),current=book[category.key];
+        if(value>0&&(!current||value>current.value))book[category.key]={value,id,teamIndex,teamName:team.name,season:f.season,week,opponent:opponent?.name||"Unknown club"};
+      }
+    }
+  }
+
+  function recordSeasonTeamGame(stats,teamIndex,week,opponentIndex) {
+    const f=state.franchise;if(!f)return;
+    normalizeFranchiseData(f);
+    const roster=state.leagueTeams[teamIndex]?.roster||[],keys=Object.keys(newPlayerStat());
+    roster.forEach((id)=>{
+      const target=seasonEntry(teamIndex,id),source=stats[id]||newPlayerStat();target.games++;
+      keys.forEach((key)=>target[key]=(target[key]||0)+(Number(source[key])||0));
+    });
+    updateSingleGameRecords(stats,teamIndex,week,opponentIndex);
+  }
+
+  function seasonEntries() { return Object.values(state.franchise?.seasonStats||{}).filter((entry)=>entry.games>0&&byId[entry.id]); }
+
+  function awardScore(entry,key) {
+    const offensiveTD=(entry.passTD||0)+(entry.rushTD||0)+(entry.recTD||0);
+    if(key==="offense")return entry.passYds*.32+entry.rushYds+entry.recYds+offensiveTD*60-entry.ints*24;
+    if(key==="defense")return entry.tackles*8+entry.sacks*36+entry.interceptions*52+entry.passesDefended*10+entry.blocksShed*4;
+    if(key==="trenches")return entry.blocksWon*7+entry.blocksShed*8+entry.pressures*9+entry.sacks*20-entry.sacksAllowed*8;
+    return entry.passYds*.25+entry.rushYds+entry.recYds+offensiveTD*55+entry.tackles*8+entry.sacks*30+entry.interceptions*45+entry.blocksWon*4-entry.ints*18;
+  }
+
+  function awardSummary(entry,key) {
+    if(key==="offense")return `${entry.passYds} pass · ${entry.rushYds+entry.recYds} scrimmage · ${statMetric(entry,"touchdowns")} TD`;
+    if(key==="defense")return `${entry.tackles} tackles · ${entry.sacks} sacks · ${entry.interceptions} INT`;
+    if(key==="trenches")return `${entry.blocksWon} blocks won · ${entry.blocksShed} sheds · ${entry.pressures} pressures`;
+    return `${entry.passYds+entry.rushYds+entry.recYds} total yards · ${statMetric(entry,"touchdowns")} TD · ${entry.tackles} tackles`;
+  }
+
+  function computeSeasonAwards(finalized=false) {
+    const entries=seasonEntries(),definitions=[["mvp","League MVP"],["offense","Offensive Player of the Year"],["defense","Defensive Player of the Year"],["trenches","Trench Trophy"]];
+    const winners=definitions.map(([key,title])=>{
+      const entry=[...entries].sort((a,b)=>awardScore(b,key)-awardScore(a,key))[0];
+      return entry?{key,title,id:entry.id,teamIndex:entry.teamIndex,teamName:entry.teamName,score:Math.round(awardScore(entry,key)),summary:awardSummary(entry,key)}:null;
+    }).filter(Boolean);
+    return {season:state.franchise?.season||1,finalized,winners};
+  }
+
+  function updateSeasonRecordBook() {
+    const f=state.franchise,book=f.recordBook.season;
+    for(const entry of seasonEntries())for(const category of RECORD_CATEGORIES){
+      const value=statMetric(entry,category.key),current=book[category.key];
+      if(value>0&&(!current||value>current.value))book[category.key]={value,id:entry.id,teamIndex:entry.teamIndex,teamName:entry.teamName,season:f.season,games:entry.games};
+    }
+  }
+
+  function archiveCompletedSeason() {
+    const f=state.franchise;if(f.seasonArchive.some((item)=>item.season===f.season))return;
+    const standing=f.standings[0];
+    f.seasonArchive.unshift({season:f.season,placement:f.lastPlacement,record:{w:standing.w,l:standing.l,t:standing.t,pf:standing.pf,pa:standing.pa},awards:JSON.parse(JSON.stringify(f.awards)),leaders:RECORD_CATEGORIES.map((category)=>{const entry=[...seasonEntries()].sort((a,b)=>statMetric(b,category.key)-statMetric(a,category.key))[0];return entry?{key:category.key,id:entry.id,teamIndex:entry.teamIndex,teamName:entry.teamName,value:statMetric(entry,category.key)}:null;}).filter(Boolean)});
+    f.seasonArchive=f.seasonArchive.slice(0,20);
   }
 
   function newTeamStat() { return { plays:0,totalYards:0,passYards:0,rushYards:0,firstDowns:0,turnovers:0,thirdAtt:0,thirdConv:0,penalties:0,penaltyYards:0,time:0 }; }
@@ -974,7 +1207,7 @@
   function choosePlayCall(team) {
     const selected=team==="human"&&state.game.selectedPlay?PLAYBOOK.find((play)=>play.id===state.game.selectedPlay):null;
     if(selected)return selected;
-    if(team==="human"&&!state.autoplay)return contextPlayOptions(team)[0];
+    if(team==="human"&&!state.autoplay&&!state.game.quickSim)return contextPlayOptions(team)[0];
     const type=choosePlayType(team);const matching=PLAYBOOK.filter((play)=>play.type===type);
     return choose(matching.length?matching:PLAYBOOK);
   }
@@ -1386,13 +1619,13 @@
   function simToEnd() {
     const g=state.game;if(!g||g.animating)return;
     clearTimeout(autoTimer);state.autoplay=false;closeModal();g.animating=false;
-    let simulated=0;
+    let simulated=0;g.quickSim=true;
     while(g.phase!=="final"&&simulated<700){
       if(g.phase==="quarter"){if(!advanceQuarterState())break;continue;}
       if(g.phase!=="playing"){g.phase="final";break;}
       const event=buildNextEvent();applyEvent(event);simulated++;
     }
-    if(g.phase!=="final")g.phase="final";
+    g.quickSim=false;if(g.phase!=="final")g.phase="final";
     state.postgameTab="summary";state.screen="postgame";save();render();toast(`Simulated ${simulated} remaining snap${simulated===1?"":"s"}.`);
   }
 
@@ -1423,13 +1656,17 @@
 
   function finalizeFranchiseGame() {
     const g=state.game,f=state.franchise;if(state.mode!=="franchise"||!f||g.franchiseProcessed)return;
+    normalizeFranchiseData(f);
     const scheduled=f.schedule.find((game)=>!game.played&&game.opponentIndex===state.opponentIndex)||f.schedule.find((game)=>!game.played);
     if(!scheduled)return;
     const humanScore=g.scores.human,cpuScore=g.scores.cpu;const won=humanScore>cpuScore;const tied=humanScore===cpuScore;
     scheduled.played=true;scheduled.humanScore=humanScore;scheduled.cpuScore=cpuScore;scheduled.result=tied?"T":won?"W":"L";
     recordStanding(f.standings[0],humanScore,cpuScore);recordStanding(f.standings[scheduled.opponentIndex],cpuScore,humanScore);
+    recordSeasonTeamGame(g.stats,0,scheduled.week,scheduled.opponentIndex);
+    recordSeasonTeamGame(g.stats,scheduled.opponentIndex,scheduled.week,0);
+    const payout=creditPayoutForGame(g);f.credits+=payout.total;g.creditPayout=payout;
     const cpuGames=f.cpuSchedule?.[scheduled.week-1]||[];
-    cpuGames.forEach((game)=>{if(!game.played){const result=simulateCpuMatchup(game.a,game.b);Object.assign(game,result);}});
+    cpuGames.forEach((game)=>{if(!game.played){const result=simulateCpuMatchup(game.a,game.b,scheduled.week);Object.assign(game,result);}});
     for(const id of state.humanRoster){
       const stat=g.stats[id]||newPlayerStat(),record=progressFor(id);
       const yards=stat.passYds+stat.rushYds+stat.recYds;
@@ -1437,12 +1674,13 @@
       const impact=Math.max(4,Math.round(stat.passYds*.32+stat.rushYds+stat.recYds+touchdowns*55+stat.tackles*10+stat.sacks*30+stat.interceptions*45+stat.passesDefended*8+stat.blocksWon*5+stat.blocksShed*6+stat.pressures*4));
       record.games++;if(won)record.wins++;record.impact+=impact;record.yards+=yards;record.touchdowns+=touchdowns;record.tackles+=stat.tackles;record.sacks+=stat.sacks;record.interceptions+=stat.interceptions;
     }
-    f.history.unshift({season:f.season,week:scheduled.week,opponent:state.cpuName,humanScore,cpuScore,result:scheduled.result});
+    f.history.unshift({season:f.season,week:scheduled.week,opponent:state.cpuName,humanScore,cpuScore,result:scheduled.result,credits:payout.total});
     if(f.history.length>30)f.history.pop();
     if(f.schedule.every((game)=>game.played)){
       f.seasonComplete=true;const rows=sortedStandings();const place=rows.findIndex((row)=>row.teamIndex===0)+1;const reward=rewardForPlacement(place);
       f.lastPlacement=place;f.lastReward=reward;
       for(let index=0;index<reward.count;index++)f.boxes.push({id:`s${f.season}-${place}-${index}-${Date.now()}`,type:reward.type,source:`Season ${f.season} · ${ordinal(place)} place`});
+      f.awards=computeSeasonAwards(true);updateSeasonRecordBook();archiveCompletedSeason();
     }
     g.franchiseProcessed=true;save();
   }
@@ -1451,7 +1689,8 @@
     finalizeFranchiseGame();
     const g=state.game,h=g.teamStats.human,c=g.teamStats.cpu; const winner=g.scores.human===g.scores.cpu?"A hard-fought draw":g.scores.human>g.scores.cpu?`${state.teamName} win`: `${state.cpuName} win`;
     const leaders=topLeaders();
-    const summary=`<div class="report-grid"><div class="report-panel"><div class="panel-head"><h2 class="panel-title">Final comparison</h2></div>${[[h.totalYards,"Total yards",c.totalYards],[h.passYards,"Passing",c.passYards],[h.rushYards,"Rushing",c.rushYards],[h.firstDowns,"First downs",c.firstDowns],[h.turnovers,"Turnovers",c.turnovers],[h.thirdConv+"/"+h.thirdAtt,"Third down",c.thirdConv+"/"+c.thirdAtt]].map(([a,label,b])=>`<div class="team-comparison"><span>${a}</span><b>${label}</b><span>${b}</span></div>`).join("")}</div><div class="report-panel"><div class="panel-head"><h2 class="panel-title">Game leaders</h2></div><div class="problem-list">${Object.entries(leaders).map(([label,[id,value]])=>`<button class="problem-card good" style="text-align:left;color:inherit" data-action="profile" data-id="${id}"><strong>${label.toUpperCase()} · ${byId[id].name}</strong><p>${value} impact points · ${state.humanRoster.includes(id)?esc(state.teamName):esc(state.cpuName)}</p></button>`).join("")}</div></div></div>`;
+    const earnings=state.mode==="franchise"&&g.creditPayout?`<section class="credit-earned"><div class="credit-coin">LC</div><div><p class="eyebrow">Match earnings deposited</p><h2>+${formatCredits(g.creditPayout.total)} League Credits</h2><p>${g.creditPayout.result==="W"?"Win guarantee":g.creditPayout.result==="T"?"Draw payout":"Match payout"} ${formatCredits(g.creditPayout.base)} · ${g.creditPayout.margin?`Performance ${formatCredits(g.creditPayout.margin)} · `:""}Production ${formatCredits(g.creditPayout.production)}</p></div><div><span>NEW BALANCE</span><strong>${formatCredits(state.franchise.credits)} LC</strong><small>Poké Ball Box · 1,000 LC</small></div></section>`:"";
+    const summary=`${earnings}<div class="report-grid"><div class="report-panel"><div class="panel-head"><h2 class="panel-title">Final comparison</h2></div>${[[h.totalYards,"Total yards",c.totalYards],[h.passYards,"Passing",c.passYards],[h.rushYards,"Rushing",c.rushYards],[h.firstDowns,"First downs",c.firstDowns],[h.turnovers,"Turnovers",c.turnovers],[h.thirdConv+"/"+h.thirdAtt,"Third down",c.thirdConv+"/"+c.thirdAtt]].map(([a,label,b])=>`<div class="team-comparison"><span>${a}</span><b>${label}</b><span>${b}</span></div>`).join("")}</div><div class="report-panel"><div class="panel-head"><h2 class="panel-title">Game leaders</h2></div><div class="problem-list">${Object.entries(leaders).map(([label,[id,value]])=>`<button class="problem-card good" style="text-align:left;color:inherit" data-action="profile" data-id="${id}"><strong>${label.toUpperCase()} · ${byId[id].name}</strong><p>${value} impact points · ${state.humanRoster.includes(id)?esc(state.teamName):esc(state.cpuName)}</p></button>`).join("")}</div></div></div>`;
     let content=summary;if(state.postgameTab==="offense")content=postgameTable("offense");if(state.postgameTab==="defense")content=postgameTable("defense");if(state.postgameTab==="matchups")content=postgameTable("matchups");
     app.className="screen report-screen";
     app.innerHTML=`<section class="report-panel"><div class="postgame-hero"><div class="trophy">◆</div><p class="eyebrow">Final · ${state.mode==="franchise"?`Franchise season ${state.franchise.season}`:"National exhibition"}</p><h1>${esc(winner)}</h1><p>${esc(state.teamName)} ${g.scores.human} · ${esc(state.cpuName)} ${g.scores.cpu}</p><div class="hero-actions" style="justify-content:center">${state.mode==="franchise"?`<button class="primary-button" data-action="return-franchise">Return to franchise</button>${state.franchise.boxes.length?`<button class="secondary-button" data-action="show-boxes">Box room · ${state.franchise.boxes.length}</button>`:""}`:`<button class="primary-button" data-action="rematch">Draft again</button><button class="secondary-button" data-action="home">League headquarters</button>`}</div></div><div class="postgame-tabs">${[["summary","Summary"],["offense","Offense"],["defense","Defense"],["matchups","Matchups"]].map(([id,label])=>`<button class="${state.postgameTab===id?"active":""}" data-action="postgame-tab" data-tab="${id}">${label}</button>`).join("")}</div><div class="postgame-content">${content}</div></section>`;
@@ -1483,13 +1722,14 @@
     if(action==="quick-exhibition"){const input=document.getElementById("teamNameInput");if(input?.value.trim())state.teamName=input.value.trim().slice(0,26);startDraft(true);}
     if(action==="start-franchise")startFranchise();
     if(action==="resume-franchise")resumeFranchise();
-    if(action==="continue-save"&&savedState){state=JSON.parse(JSON.stringify(savedState));state.autoplay=false;if(state.game)state.game.animating=false;render();}
+    if(action==="continue-save"&&savedState){state=JSON.parse(JSON.stringify(savedState));state.autoplay=false;normalizeFranchiseData(state.franchise);if(state.game)state.game.animating=false;render();}
     if(action==="draft-pick"){
       if(teamAtPick(state.draftIndex)!==0)return;const p=byId[Number(button.dataset.id)];commitPick(p,0);processCpuTurns();if(state.screen==="draft"){save();render();}
     }
     if(action==="auto-draft")autoCompleteDraft();
     if(action==="draft-help")showRatingsGuide();
     if(action==="show-league")showLeagueOverview();
+    if(action==="player-directory")showPlayerDirectory();
     if(action==="profile")showProfile(Number(button.dataset.id));
     if(action==="roster-tab"){state.rosterTab=button.dataset.tab;state.selectedSlot=null;render();}
     if(action==="select-slot")swapSlots(button.dataset.slot);
@@ -1513,6 +1753,8 @@
     if(action==="return-franchise"){state.autoplay=false;state.game=null;state.mode="franchise";state.screen="franchise";save();render();}
     if(action==="show-collection"){state.autoplay=false;state.screen="collection";save();render();}
     if(action==="show-boxes"){state.autoplay=false;state.screen="boxes";save();render();}
+    if(action==="show-league-stats"){state.autoplay=false;state.screen="leagueStats";save();render();}
+    if(action==="stats-tab"){state.statsTab=button.dataset.tab;save();render();}
     if(action==="franchise-roster")openFranchiseRoster();
     if(action==="prepare-franchise-game")prepareFranchiseGame();
     if(action==="auto-best-roster")optimizeActiveRoster();
@@ -1521,6 +1763,7 @@
     if(action==="evolve-player")showEvolutionChoices(Number(button.dataset.id));
     if(action==="choose-evolution")evolvePokemon(Number(button.dataset.from),Number(button.dataset.to));
     if(action==="open-box")openBox(Number(button.dataset.index));
+    if(action==="buy-box")buyBox(button.dataset.type);
     if(action==="clear-box-results"){state.franchise.lastOpen=null;save();render();}
     if(action==="start-next-season")startNextSeason();
     if(action==="rematch"){resetDraft();setTimeout(()=>startDraft(false),0);}
@@ -1534,6 +1777,7 @@
     if(target.id==="sortDraft"){state.sort=target.value;render();}
     if(target.id==="collectionGen"){state.collectionGen=target.value;render();}
     if(target.id==="collectionSort"){state.collectionSort=target.value;render();}
+    if(target.id==="playerDirectoryGen"){state.playerGen=target.value;renderPlayerDirectoryResults();}
     if(target.id==="opponentSelect"&&!state.game){state.opponentIndex=Number(target.value);syncOpponent();save();render();toast(`${state.cpuName} selected as your exhibition opponent.`);}
     if(target.matches("[data-strategy]")){state.game.strategy.human[target.dataset.strategy]=target.value;save();toast("Coaching adjustment saved for the next quarter.");}
   });
@@ -1548,6 +1792,7 @@
       state.collectionSearch=target.value;render();
       const input=document.getElementById("collectionSearch");if(input){input.focus();input.setSelectionRange(input.value.length,input.value.length);}
     }
+    if(target.id==="playerDirectorySearch"){state.playerSearch=target.value;renderPlayerDirectoryResults();}
   });
 
   document.getElementById("brandHome").addEventListener("click",()=>{state.autoplay=false;state.screen="home";state.mode=null;save();render();});

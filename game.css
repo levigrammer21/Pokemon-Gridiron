@@ -52,6 +52,7 @@ img { display: block; max-width: 100%; }
 .icon-button:hover, .quiet-button:hover, .secondary-button:hover, .seg-button:hover { border-color: rgba(82,220,255,.5); background: var(--panel-3); }
 .icon-button:active, .quiet-button:active, .primary-button:active, .secondary-button:active { transform: translateY(1px); }
 .icon-button { width: 40px; font-weight: 800; }
+.player-search-button { width: auto; display: flex; align-items: center; gap: 6px; padding: 0 11px; color: var(--cyan); font-size: 22px; line-height: 1; }.player-search-button b { color: var(--ink); font-size: 9px; letter-spacing: .07em; text-transform: uppercase; }
 .quiet-button { padding: 0 14px; font-size: 12px; font-weight: 700; }
 .primary-button { border-color: var(--cyan); background: var(--cyan); color: #04131c; font-weight: 800; padding: 0 20px; box-shadow: 0 8px 24px rgba(82,220,255,.17); }
 .primary-button:hover { background: #88eaff; transform: translateY(-1px); }
@@ -327,6 +328,15 @@ button:disabled { opacity: .38; cursor: not-allowed; transform: none !important;
 .profile-body { padding: 20px; }
 .profile-development { position: relative; margin-bottom: 18px; border: 1px solid rgba(255,200,87,.22); border-radius: 8px; background: rgba(255,200,87,.055); padding: 11px 12px; }
 .profile-development > span { display: block; color: var(--gold); font-size: 7px; font-weight: 900; letter-spacing: .12em; }.profile-development > strong { display: block; margin-top: 4px; font-size: 11px; }.profile-development > small { display: block; margin-top: 4px; color: var(--muted); font-size: 8px; }.profile-development button { min-height: 32px; margin-top: 9px; padding-inline: 12px; font-size: 8px; }
+.profile-season { margin-bottom: 18px; }
+.profile-season > div { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: rgba(82,220,255,.035); }
+.profile-season span,.profile-season strong { min-width: 0; font-size: 9px; }.profile-season strong { text-align: right; color: var(--gold); }.profile-season small { display: block; margin-top: 3px; color: var(--muted); font-size: 7px; font-weight: 600; }
+.directory-tools { position: sticky; top: 0; z-index: 3; display: grid; grid-template-columns: 1fr 170px auto; gap: 7px; padding: 12px 14px; border-bottom: 1px solid var(--line); background: rgba(11,27,41,.96); }
+.directory-tools input,.directory-tools select { min-height: 42px; border: 1px solid var(--line); border-radius: 7px; background: #071521; color: white; padding: 0 12px; }
+.directory-tools > span { align-self: center; color: var(--muted); font-size: 8px; font-weight: 800; letter-spacing: .08em; }
+.player-directory { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; padding: 12px 14px 16px; }
+.directory-player { position: relative; min-width: 0; min-height: 64px; display: grid; grid-template-columns: 48px minmax(0,1fr) auto; align-items: center; gap: 9px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.025); padding: 7px 9px; text-align: left; }
+.directory-player:hover { border-color: rgba(82,220,255,.55); background: var(--cyan-soft); }.directory-player img { width: 48px; height: 48px; object-fit: contain; }.directory-player span { min-width: 0; }.directory-player strong,.directory-player small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.directory-player strong { font-size: 10px; }.directory-player small { margin-top: 3px; color: var(--muted); font-size: 7px; }.directory-player > b { font: 800 23px/.8 "Barlow Condensed"; text-align: right; }.directory-player > b small { margin-top: 6px; font: 800 7px Inter; }.directory-player > i { position: absolute; right: 6px; top: 4px; color: var(--gold); font-size: 6px; font-style: normal; font-weight: 900; }
 .ratings-title { color: var(--muted); font: 800 9px Inter; letter-spacing: .13em; text-transform: uppercase; margin: 0 0 9px; }
 .rating-bars { display: grid; gap: 7px; }
 .rating-row { display: grid; grid-template-columns: 92px 1fr 28px; gap: 8px; align-items: center; font-size: 9px; }
@@ -402,6 +412,7 @@ button:disabled { opacity: .38; cursor: not-allowed; transform: none !important;
   .brand strong { font-size: 19px; }
   .brand-mark { width: 32px; }
   .brand-logo { width: 36px; height: 36px; }
+  .player-search-button { width: 40px; justify-content: center; padding: 0; }.player-search-button b { display: none; }
   .screen { padding: 18px 12px; min-height: calc(100vh - 62px); }
   .display-title { font-size: 53px; }
   .hero-board { min-height: 505px; }
@@ -488,11 +499,12 @@ button:disabled { opacity: .38; cursor: not-allowed; transform: none !important;
 .franchise-record span { color: var(--muted); font-size: 8px; font-weight: 800; letter-spacing: .2em; }
 .franchise-record strong { font: 800 58px/.95 "Barlow Condensed"; }
 .franchise-record small { color: var(--gold); font-size: 9px; }
-.franchise-metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin: 14px 0; }
+.franchise-metrics { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; margin: 14px 0; }
 .franchise-metrics article { border: 1px solid var(--line); border-radius: 11px; background: var(--panel); padding: 15px 17px; }
 .franchise-metrics span,.franchise-metrics small { display: block; color: var(--muted); font-size: 9px; }
 .franchise-metrics span { font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .franchise-metrics strong { display: block; margin: 3px 0 1px; font: 800 31px "Barlow Condensed"; }
+.franchise-metrics .credits-metric { border-color: rgba(255,200,87,.28); background: linear-gradient(145deg,rgba(255,200,87,.085),var(--panel)); }.franchise-metrics .credits-metric strong { color: var(--gold); }
 .franchise-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 12px; }
 .franchise-panel { border: 1px solid var(--line); border-radius: 13px; background: rgba(11,27,41,.96); overflow: hidden; }
 .panel-copy { margin: 16px 16px 7px; color: var(--muted); font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
@@ -590,6 +602,19 @@ button:disabled { opacity: .38; cursor: not-allowed; transform: none !important;
 .reward-grid { display: grid; grid-template-columns: repeat(6,1fr); padding: 14px; }
 .reward-grid > div { min-width: 0; padding: 12px 8px; border-right: 1px solid var(--line); text-align: center; display: grid; justify-items: center; gap: 5px; }.reward-grid > div:last-child { border-right: 0; }.reward-grid > div > b { color: var(--faint); font: 800 20px "Barlow Condensed"; }.reward-grid strong { font-size: 9px; }.reward-grid small { min-height: 20px; color: var(--muted); font-size: 7px; }
 
+/* Franchise economy, statistics, and records */
+.box-shop { margin-bottom: 14px; overflow: hidden; border: 1px solid rgba(255,200,87,.24); border-radius: 13px; background: radial-gradient(circle at 92% -20%,rgba(255,200,87,.1),transparent 40%),var(--panel); }
+.credit-balance { text-align: right; }.credit-balance span,.credit-balance small { display: block; color: var(--muted); font-size: 7px; font-weight: 800; letter-spacing: .1em; }.credit-balance strong { color: var(--gold); font: 800 25px "Barlow Condensed"; }
+.shop-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; padding: 0 14px 12px; }
+.shop-card { min-width: 0; display: grid; grid-template-columns: 48px minmax(0,1fr) auto; align-items: center; gap: 11px; border: 1px solid color-mix(in srgb,var(--box),transparent 70%); border-radius: 9px; background: rgba(255,255,255,.025); padding: 11px; }.shop-card h3 { margin: 0; font: 800 20px "Barlow Condensed"; text-transform: uppercase; }.shop-card p { margin: 3px 0 0; color: var(--muted); font-size: 7px; line-height: 1.45; }.shop-card button { min-width: 98px; min-height: 38px; padding-inline: 10px; font-size: 8px; }
+.shop-note { margin: 0; padding: 0 16px 14px; color: var(--muted); font-size: 8px; line-height: 1.5; }
+.credit-earned { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; margin-bottom: 14px; border: 1px solid rgba(255,200,87,.3); border-radius: 11px; background: linear-gradient(120deg,rgba(255,200,87,.11),rgba(82,220,255,.035)); padding: 16px 18px; }.credit-coin { width: 50px; aspect-ratio: 1; display: grid; place-items: center; border: 2px solid var(--gold); border-radius: 50%; color: #07121d; background: var(--gold); box-shadow: 0 0 24px rgba(255,200,87,.18); font: 900 13px Inter; }.credit-earned h2 { margin: 0 0 4px; color: var(--gold); font: 800 29px "Barlow Condensed"; text-transform: uppercase; }.credit-earned p { margin: 0; color: var(--muted); font-size: 8px; }.credit-earned > div:last-child { text-align: right; }.credit-earned > div:last-child span,.credit-earned > div:last-child small { display: block; color: var(--muted); font-size: 7px; }.credit-earned > div:last-child strong { display: block; color: white; font: 800 24px "Barlow Condensed"; }
+.stats-head { padding-bottom: 14px; }.stats-tabs { display: flex; gap: 5px; padding: 5px; margin-bottom: 12px; overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }.stats-tabs button { min-width: 145px; min-height: 43px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }.stats-tabs button.active { color: #07121d; background: var(--cyan); }
+.leaderboard-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }.leader-card { overflow: hidden; border: 1px solid var(--line); border-radius: 11px; background: var(--panel); }.leader-card-head { min-height: 43px; display: flex; align-items: center; justify-content: space-between; padding: 0 13px; border-bottom: 1px solid var(--line); }.leader-card-head span { color: var(--cyan); font: 800 17px "Barlow Condensed"; letter-spacing: .05em; }.leader-card-head small { color: var(--muted); font-size: 7px; font-weight: 800; }.leader-list { padding: 6px; }.leader-row { width: 100%; min-width: 0; min-height: 53px; display: grid; grid-template-columns: 21px 40px minmax(0,1fr) auto; align-items: center; gap: 7px; border: 0; border-bottom: 1px solid rgba(255,255,255,.055); background: transparent; padding: 5px; text-align: left; }.leader-row:last-child { border-bottom: 0; }.leader-row:hover { border-radius: 6px; background: var(--cyan-soft); }.leader-row > b { color: var(--faint); text-align: center; font-size: 9px; }.leader-row img { width: 40px; height: 40px; object-fit: contain; }.leader-row span { min-width: 0; }.leader-row strong,.leader-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.leader-row strong { font-size: 9px; }.leader-row small { margin-top: 2px; color: var(--muted); font-size: 7px; }.leader-row em { color: var(--gold); font: 800 23px "Barlow Condensed"; font-style: normal; }
+.awards-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }.award-card { overflow: hidden; position: relative; border: 1px solid rgba(255,200,87,.22); border-radius: 12px; background: linear-gradient(155deg,#12283a,#081621); padding: 14px; text-align: center; }.award-card > span { color: var(--gold); font-size: 7px; font-weight: 900; letter-spacing: .13em; }.award-art { height: 150px; margin: 8px -14px 12px; background: radial-gradient(circle,color-mix(in srgb,var(--award),transparent 78%),transparent 62%); }.award-art img { width: 150px; height: 150px; object-fit: contain; margin: auto; filter: drop-shadow(0 14px 14px rgba(0,0,0,.4)); }.award-card .eyebrow { margin-bottom: 6px; font-size: 7px; }.award-card > button { border: 0; background: none; color: white; font: 800 28px/.9 "Barlow Condensed"; text-transform: uppercase; }.award-card > small { display: block; color: var(--muted); font-size: 8px; }.award-card > p:last-child { min-height: 30px; color: var(--muted); font-size: 8px; line-height: 1.5; }
+.season-history { margin-top: 12px; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }.season-history > article { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 15px; padding: 12px 14px; border-top: 1px solid var(--line); }.season-history > article > div:first-child b,.season-history > article > div:first-child small { display: block; }.season-history > article > div:first-child b { font: 800 20px "Barlow Condensed"; text-transform: uppercase; }.season-history > article > div:first-child small { color: var(--muted); font-size: 8px; }.history-awards { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 5px; }.history-awards button { min-width: 0; display: grid; grid-template-columns: 34px 1fr; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 6px; background: rgba(255,255,255,.025); padding: 4px; text-align: left; }.history-awards img { width: 34px; height: 34px; object-fit: contain; }.history-awards span,.history-awards b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.history-awards span { color: var(--muted); font-size: 6px; }.history-awards b { margin-top: 2px; color: white; font-size: 8px; }
+.record-book { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 11px; }.record-panel { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }.record-list { padding: 6px 12px 12px; }.record-row { width: 100%; min-height: 63px; display: grid; grid-template-columns: 105px 45px minmax(0,1fr); align-items: center; gap: 9px; border: 0; border-bottom: 1px solid rgba(255,255,255,.06); background: transparent; padding: 5px; text-align: left; }.record-row:hover { background: var(--cyan-soft); }.record-row > img { width: 45px; height: 45px; object-fit: contain; }.record-row span { min-width: 0; }.record-row small,.record-row b,.record-row strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.record-row small { color: var(--muted); font-size: 7px; }.record-row strong { color: var(--gold); font: 800 25px "Barlow Condensed"; }.record-row b { font-size: 9px; }.record-row.empty { display: flex; justify-content: space-between; color: var(--muted); }
+
 /* Live broadcast pacing and player separation */
 .broadcast { grid-template-rows: minmax(480px,1fr) auto auto; }
 .field-player { width: 46px; }
@@ -621,6 +646,8 @@ button:disabled { opacity: .38; cursor: not-allowed; transform: none !important;
 @media (max-width: 1280px) {
   .collection-grid { grid-template-columns: repeat(4,minmax(0,1fr)); }
   .playcall-options { overflow-x: auto; grid-template-columns: repeat(4,170px); }
+  .leaderboard-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .awards-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 
 @media (max-width: 1000px) {
@@ -630,6 +657,8 @@ button:disabled { opacity: .38; cursor: not-allowed; transform: none !important;
   .franchise-metrics { grid-template-columns: repeat(2,1fr); }
   .collection-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
   .box-shelf { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .shop-grid { grid-template-columns: 1fr; }
+  .record-book { grid-template-columns: 1fr; }
   .reward-grid { grid-template-columns: repeat(3,1fr); row-gap: 10px; }
   .reward-grid > div:nth-child(3) { border-right: 0; }
 }
@@ -648,6 +677,10 @@ button:disabled { opacity: .38; cursor: not-allowed; transform: none !important;
   .collection-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }.collection-art { height: 115px; }.collection-art img { width: 105px; height: 105px; }.collection-name h3 { font-size: 17px; }.collection-name > strong { font-size: 24px; }
   .swap-roster { grid-template-columns: 1fr; }
   .box-shelf,.pull-grid { grid-template-columns: 1fr; }.pull-card img { width: 140px; height: 140px; }.reward-grid { grid-template-columns: repeat(2,1fr); }.reward-grid > div { border-right: 0; border-bottom: 1px solid var(--line); }
+  .directory-tools { grid-template-columns: 1fr 1fr; }.directory-tools > span { display: none; }.player-directory { grid-template-columns: 1fr; }
+  .leaderboard-grid,.awards-grid { grid-template-columns: 1fr; }.history-awards { grid-template-columns: repeat(2,minmax(0,1fr)); }.season-history > article { grid-template-columns: 1fr; }
+  .credit-earned { grid-template-columns: auto 1fr; }.credit-earned > div:last-child { grid-column: 1/-1; padding-top: 10px; border-top: 1px solid var(--line); text-align: left; }
+  .shop-card { grid-template-columns: 42px minmax(0,1fr); }.shop-card button { grid-column: 1/-1; width: 100%; }
   .playcall-strip { min-height: 100px; overflow-x: auto; }.playcall-label { width: 92px; }.playcall-options { grid-template-columns: repeat(4,158px); overflow: visible; }
   .field-player { width: 31px; }.field-player img { width: 31px; height: 31px; }.field-player::after { width: 18px; left: 6px; }.field-player small { top: 29px; font-size: 5px; }
   .field-status { top: 7px; left: 7px; padding: 5px 6px; }.field-status strong { font-size: 10px; }
