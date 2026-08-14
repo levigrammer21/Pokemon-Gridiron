@@ -7,7 +7,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js';
 import {
   getFirestore, doc, getDoc, setDoc, collection, query, orderBy, limit, getDocs,
-  serverTimestamp
+  serverTimestamp, deleteDoc
 } from 'https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js';
 
 const firebaseConfig = {
@@ -168,6 +168,21 @@ async function getLeaderboard() {
   return snaps.docs.map((snap,index)=>({ rank:index+1, id:snap.id, ...snap.data() }));
 }
 
+async function resetFranchise(state) {
+  const user = auth.currentUser;
+  if (!user) return false;
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  pendingSave = null;
+  const clientUpdatedAt = Number(state?.localSavedAt) || Date.now();
+  await Promise.all([
+    setDoc(doc(db, 'users', user.uid, 'saves', 'main'), { state, clientUpdatedAt, updatedAt:serverTimestamp() }),
+    deleteDoc(doc(db, 'leaderboards', user.uid))
+  ]);
+  window.dispatchEvent(new CustomEvent('pg-cloud-saved', { detail:{ clientUpdatedAt } }));
+  return true;
+}
+
 window.PGCloud = {
   ready:true,
   get user(){ return profileFor(auth.currentUser); },
@@ -178,7 +193,7 @@ window.PGCloud = {
   signOut:()=>signOut(auth),
   queueSave,
   saveNow:(state,leaderboard)=>queueSave(state,leaderboard,true),
-  getLeaderboard,
+  getLeaderboard, resetFranchise,
   errorMessage
 };
 

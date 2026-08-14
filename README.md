@@ -1,4 +1,4 @@
-# Pokémon Gridiron v4.1.1
+# Pokémon Gridiron v4.1.2
 
 Pokémon Gridiron is a complete 11-on-11 football simulator, collection game, and promotion/relegation Franchise featuring National Pokédex #001–#898: every base species from Generations 1–8.
 
@@ -43,7 +43,7 @@ Pokémon Gridiron is a complete 11-on-11 football simulator, collection game, an
   - 3rd: Great Ball Box
   - 4th: two Poké Ball Boxes
   - 5th: Poké Ball Box
-- Poké Ball Boxes draw non-legendary Pokémon from the full evolution pool. Master Ball Boxes draw uniformly from all 898 Pokémon; every Pokémon is equally weighted.
+- Poké Ball Boxes are progression packs: 90% contain three Common cards; 10% contain two Common cards and one Rare card. Master Ball Boxes draw uniformly from all 898 Pokémon; every Pokémon is equally weighted.
 - Duplicate pulls become +70 development impact.
 - Manage a permanent collection, a 25-card active roster, and offense/defense/special-teams depth charts.
 - Evolve eligible cards through game-and-win milestones or individual production. Cross-generation and branching evolution paths are included through Gen 8.
@@ -112,8 +112,14 @@ All gameplay data is bundled. Artwork URLs use the community-run PokéAPI sprite
 This is an unofficial, noncommercial private fan project. Pokémon and Pokémon character names are trademarks of their respective owners.
 
 
-## v4.1.1
+## v4.1.2
 
 - Restored an optional **Sim to End** control. Quarter-by-quarter live simulation and quarterly adjustments remain the default path.
 - Improved situational play calling using down, distance, field position, score, game clock, offensive emphasis, and tempo.
 - Rebalanced rushing, passing, pressure, turnovers, explosive plays, and clock runoff for more football-like game flow.
+
+
+## v4.1.2 progression/reset update
+- Poké Ball Boxes are now low-power progression packs: 90% contain three Common cards; 10% contain two Common cards and one Rare card. The 10% roll is per box.
+- The ten founding boxes and Poké Ball League CPU teams use the same basic-box odds, lowering first-season roster power.
+- Franchise Home now includes a two-step Reset Franchise action. It clears franchise progress and the signed-in leaderboard entry while preserving the Firebase account and linked authentication methods.

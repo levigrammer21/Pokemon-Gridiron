@@ -8,7 +8,7 @@
   const SAVE_KEY = "pokemon-gridiron-save-v4";
   const LEGACY_SAVE_KEY = "pokemon-gridiron-151-save-v2";
   const VERSION = 12;
-  const DISPLAY_VERSION = "4.1.1";
+  const DISPLAY_VERSION = "4.1.2";
   const TEAM_COUNT = 6;
   const FRANCHISE_TEAM_COUNT = 5;
   const ROSTER_SIZE = 25;
@@ -70,7 +70,7 @@
   };
   const LEGENDARIES = new Set(POKEMON.filter((p)=>p.legendary).map((p)=>p.id));
   const BOXES = {
-    pokeball:{ name:"Poké Ball Box", color:"#e75c5c", note:"Three non-legendary Pokémon from the full evolution pool." },
+    pokeball:{ name:"Poké Ball Box", color:"#e75c5c", note:"Three pulls: normally all Common, with a 1-in-10 chance for one Rare." },
     greatball:{ name:"Great Ball Box", color:"#5f9dff", note:"Three non-legendary Pokémon with one guaranteed uncommon-or-better pull." },
     ultraball:{ name:"Ultra Ball Box", color:"#f4c84e", note:"Three non-legendary Pokémon with two guaranteed rare-or-better pulls." },
     masterball:{ name:"Master Ball Box", color:"#b784ff", note:"Every Pokémon can appear, with all 898 equally weighted." }
@@ -129,7 +129,7 @@
   ];
 
   const TUTORIAL_STEPS = [
-    { title:"Welcome, Coach", body:"You started with ten Poké Ball Boxes instead of a preset roster. Your best balanced 25 are active; every other pull stays in your collection." },
+    { title:"Welcome, Coach", body:"You started with ten Poké Ball Boxes instead of a preset roster. Basic boxes are intentionally modest: most pulls are Common, and only about one box in ten contains a Rare. Your best balanced 25 become active after Box 10." },
     { title:"The five-league pyramid", body:"There are 25 permanent clubs. Finish first to move up one Ball League. Finish fifth to move down—except in the bottom division." },
     { title:"Games and gameplans", body:"Set your depth chart before kickoff, then watch each quarter simulate live. Between quarters, adjust offense, defense, tempo, fourth-down aggression, blitzes, or substitutions—or use Sim to End when you want to fast-forward the rest." },
     { title:"Credits and boxes", body:"Games pay League Credits. A win guarantees at least 1,000 LC, exactly enough for a Poké Ball Box in the Box Room." },
@@ -318,9 +318,13 @@
 
   function drawBoxCards(type,owned=[],guaranteeNew=false) {
     const results=[],seen=new Set(),existing=new Set(owned);
+    // A Poké Ball Box is the franchise's baseline progression pack: 90% are
+    // three Common cards; 10% replace one random slot with a single Rare.
+    // The roll happens once per box, not once per card.
+    const pokeRareSlot=type==="pokeball"&&Math.random()<0.10?Math.floor(Math.random()*3):-1;
     for(let slot=0;slot<3;slot++){
-      let pool=boxPool(type,slot).filter((p)=>!seen.has(p.id)&&(!guaranteeNew||!existing.has(p.id)));
-      if(!pool.length)pool=boxPool(type,slot).filter((p)=>!seen.has(p.id));
+      let pool=boxPool(type,slot,pokeRareSlot).filter((p)=>!seen.has(p.id)&&(!guaranteeNew||!existing.has(p.id)));
+      if(!pool.length)pool=boxPool(type,slot,pokeRareSlot).filter((p)=>!seen.has(p.id));
       const card=pool[Math.floor(Math.random()*pool.length)];
       if(card){seen.add(card.id);results.push(card.id);}
     }
@@ -785,9 +789,9 @@
     const nextIndex=f.boxes.findIndex((box)=>box.starter),latest=f.lastOpen;
     const top=[...f.owned].sort((a,b)=>byId[b].best.rating-byId[a].best.rating).slice(0,8);
     app.className="screen franchise-opening-screen";
-    app.innerHTML=`<section class="opening-hero"><div><p class="eyebrow">Franchise founding day · ${opened}/10 boxes opened</p><h1>${ready?"Your first club is ready":"Build a team from the unknown"}</h1><p>${ready?`Thirty cards became a balanced active roster of ${f.active.length}. Five reserves remain ready for development and future depth-chart moves.`:"There is no preset roster. Every founding Pokémon comes from these ten Poké Ball Boxes, and the four CPU clubs in your first league were built from the same ten-box level."}</p><div class="opening-progress" aria-label="Founding box progress">${Array.from({length:10},(_,index)=>`<i class="${index<opened?"opened":index===opened?"next":""}">${index+1}</i>`).join("")}</div>${ready?`<button class="primary-button gold" data-action="enter-franchise">Enter the Poké Ball League</button>`:`<button class="primary-button gold" data-action="open-box" data-index="${nextIndex}">Open founding box ${opened+1}</button>`}</div><div class="opening-ball"><span class="box-orb pokeball"></span><strong>${ready?"25 ACTIVE":"3 CARDS"}</strong><small>${ready?"AUTO-BALANCED DEPTH CHART":"NO DUPLICATES DURING FOUNDING"}</small></div></section>
+    app.innerHTML=`<section class="opening-hero"><div><p class="eyebrow">Franchise founding day · ${opened}/10 boxes opened</p><h1>${ready?"Your first club is ready":"Build a team from the unknown"}</h1><p>${ready?`Thirty cards became a balanced active roster of ${f.active.length}. Five reserves remain ready for development and future depth-chart moves.`:"There is no preset roster. Every founding Pokémon comes from these ten Poké Ball Boxes. Most boxes are three Common cards; only about one in ten contains a Rare. The four CPU clubs in your first league use the same economy."}</p><div class="opening-progress" aria-label="Founding box progress">${Array.from({length:10},(_,index)=>`<i class="${index<opened?"opened":index===opened?"next":""}">${index+1}</i>`).join("")}</div>${ready?`<button class="primary-button gold" data-action="enter-franchise">Enter the Poké Ball League</button>`:`<button class="primary-button gold" data-action="open-box" data-index="${nextIndex}">Open founding box ${opened+1}</button>`}</div><div class="opening-ball"><span class="box-orb pokeball"></span><strong>${ready?"25 ACTIVE":"3 CARDS"}</strong><small>${ready?"AUTO-BALANCED DEPTH CHART":"NO DUPLICATES DURING FOUNDING"}</small></div></section>
       ${latest?`<section class="box-results founding-results"><div class="panel-head"><div><p class="eyebrow">Latest reveal</p><h2 class="panel-title">${esc(latest.source)}</h2></div><span class="tiny">${opened}/10 COMPLETE</span></div><div class="pull-grid">${latest.results.map((result,index)=>{const p=byId[result.id];return `<article class="pull-card rarity-${p.rarity}" style="--delay:${index*120}ms"><span>FOUNDING CARD</span><button data-action="profile" data-id="${p.id}"><img src="${p.art}" alt="${esc(p.name)}"></button><h3>${esc(p.name)}</h3><p>${p.best.position} · ${p.best.rating} OVR</p><small>Generation ${p.generation} · ${p.rarity}</small></article>`}).join("")}</div></section>`:""}
-      ${ready?`<section class="opening-roster"><div class="panel-head"><div><p class="eyebrow">Top pulls</p><h2 class="panel-title">The foundation</h2></div><span class="tiny">SELECT ANY CARD FOR PROFILE</span></div><div>${top.map((id)=>{const p=byId[id];return `<button data-action="profile" data-id="${id}"><img src="${p.sprite}" alt=""><span><strong>${esc(p.name)}</strong><small>${p.best.position} · Gen ${p.generation}</small></span><b>${p.best.rating}</b></button>`}).join("")}</div></section>`:`<section class="opening-coach"><span>PG</span><div><p class="eyebrow">Professor Gridiron</p><h2>First lesson: every pull matters.</h2><p>Poké Ball Boxes can pull non-legendary Pokémon from across the full evolution pool. Position fit matters more than collecting the 25 highest headline ratings, so I’ll build a balanced first depth chart after Box 10.</p></div></section>`}`;
+      ${ready?`<section class="opening-roster"><div class="panel-head"><div><p class="eyebrow">Top pulls</p><h2 class="panel-title">The foundation</h2></div><span class="tiny">SELECT ANY CARD FOR PROFILE</span></div><div>${top.map((id)=>{const p=byId[id];return `<button data-action="profile" data-id="${id}"><img src="${p.sprite}" alt=""><span><strong>${esc(p.name)}</strong><small>${p.best.position} · Gen ${p.generation}</small></span><b>${p.best.rating}</b></button>`}).join("")}</div></section>`:`<section class="opening-coach"><span>PG</span><div><p class="eyebrow">Professor Gridiron</p><h2>First lesson: every pull matters.</h2><p>Poké Ball Boxes are your starting-point packs: three Common pulls most of the time, with a 10% chance that one slot becomes Rare. Position fit matters more than headline rating, so I’ll build a balanced first depth chart after Box 10.</p></div></section>`}`;
   }
 
   function enterFranchise() {
@@ -900,7 +904,7 @@
     const movementCopy=humanMove?humanMove.direction==="promoted"?`Promoted to the ${currentTier.name}.`:`Relegated to the ${currentTier.name}.`:f.seasonComplete?`Remaining in the ${currentTier.name}.`:"";
     app.className="screen franchise-screen";
     app.innerHTML=`${renderFranchiseNav("home")}
-      <section class="franchise-hero" style="--club:${state.teamColor}"><div><p class="eyebrow">Season ${f.season} · ${esc(seasonTier.name)} · ${f.seasonComplete?`Final: ${ordinal(f.lastPlacement)}`:`Week ${Math.min(played+1,5)} of 5`}</p><h1>${esc(state.teamName)}</h1><p>${f.seasonComplete?`${movementCopy} ${f.lastReward?.label||"Season reward"} added to your Box Room.`:"Four games and one recovery week decide promotion and relegation. Every active player earns development from wins and production."}</p><div class="hero-actions">${f.seasonComplete?`<button class="primary-button gold" data-action="start-next-season">Begin season ${f.season+1} · ${esc(currentTier.short)}</button>`:isBye?`<button class="primary-button gold" data-action="advance-franchise-bye">Advance Week ${next.week} bye</button>`:`<button class="primary-button" data-action="prepare-franchise-game">Gameplan for Week ${next?.week||played+1}</button>`}<button class="secondary-button" data-action="show-pyramid">View all 25 teams</button></div></div>
+      <section class="franchise-hero" style="--club:${state.teamColor}"><div><p class="eyebrow">Season ${f.season} · ${esc(seasonTier.name)} · ${f.seasonComplete?`Final: ${ordinal(f.lastPlacement)}`:`Week ${Math.min(played+1,5)} of 5`}</p><h1>${esc(state.teamName)}</h1><p>${f.seasonComplete?`${movementCopy} ${f.lastReward?.label||"Season reward"} added to your Box Room.`:"Four games and one recovery week decide promotion and relegation. Every active player earns development from wins and production."}</p><div class="hero-actions">${f.seasonComplete?`<button class="primary-button gold" data-action="start-next-season">Begin season ${f.season+1} · ${esc(currentTier.short)}</button>`:isBye?`<button class="primary-button gold" data-action="advance-franchise-bye">Advance Week ${next.week} bye</button>`:`<button class="primary-button" data-action="prepare-franchise-game">Gameplan for Week ${next?.week||played+1}</button>`}<button class="secondary-button" data-action="show-pyramid">View all 25 teams</button><button class="danger-button" data-action="franchise-reset-prompt">Reset franchise</button></div></div>
       <div class="franchise-record">${leagueBallMark(humanTier())}<span>RECORD</span><strong>${record.w}–${record.l}${record.t?`–${record.t}`:""}</strong><small>${placement?ordinal(placement):"—"} in ${seasonTier.short}</small></div></section>
       <section class="franchise-metrics"><article><span>Current tier</span><strong class="tier-metric">${esc(currentTier.short)}</strong><small>${esc(currentTier.name)}</small></article><article><span>Active roster</span><strong>${collectionGrade}</strong><small>club OVR · ${f.active.length}/25 cards</small></article><article class="credits-metric"><span>League Credits</span><strong>${formatCredits(f.credits)}</strong><small>1,000 buys a Poké Ball Box</small></article><article><span>Unopened boxes</span><strong>${f.boxes.length}</strong><small>${f.boxes.length?"ready to open":"shop or season rewards"}</small></article><article><span>Evolution ready</span><strong>${ready.length}</strong><small>players met development goals</small></article></section>
       <section class="franchise-grid">
@@ -909,6 +913,29 @@
         <article class="franchise-panel schedule-panel"><div class="panel-head"><h2 class="panel-title">Season schedule</h2><span class="tiny">4 GAMES · 1 BYE</span></div><div class="schedule-list">${f.schedule.map((game)=>{if(game.bye)return `<div class="schedule-row bye-row ${!game.played&&next===game?"next":""}"><span>W${game.week}</span>${leagueBallMark(f.seasonTier??humanTier())}<div><strong>Recovery week</strong><small>${game.played?"League games simulated":"Upcoming bye"}</small></div><b class="result">${game.played?"BYE":"—"}</b></div>`;const team=state.leagueTeams[game.opponentIndex];return `<div class="schedule-row ${!game.played&&next===game?"next":""}"><span>W${game.week}</span>${teamShield(team.name,team.color)}<div><strong>${esc(team.name)}</strong><small>${game.played?`${game.humanScore}–${game.cpuScore}`:"Upcoming"}</small></div><b class="result ${game.result?.toLowerCase()||""}">${game.result||"—"}</b></div>`}).join("")}</div></article>
         <article class="franchise-panel development-panel"><div class="panel-head"><h2 class="panel-title">Development watch</h2><button class="text-button" data-action="show-collection">View all →</button></div>${ready.length?`<div class="ready-row">${ready.map((id)=>`<button data-action="evolve-player" data-id="${id}"><img src="${byId[id].sprite}" alt=""><span><strong>${esc(byId[id].name)}</strong><small>Evolution ready</small></span><b>EVOLVE</b></button>`).join("")}</div>`:`<div class="empty-state compact"><strong>No evolution is ready yet</strong><p>Active players progress through lineup games and wins, or by producing enough impact in any role.</p></div>`}</article>
       </section>`;
+  }
+
+  function showFranchiseResetPrompt() {
+    if(!state.franchise)return;
+    modalContent.innerHTML=`<div class="modal-head"><div><p class="eyebrow">Franchise reset</p><h2 class="panel-title" id="modalTitle">Erase ${esc(state.teamName)} and start over?</h2></div><button class="close-button" data-close-modal>×</button></div><div class="save-conflict"><p>This permanently clears this franchise's roster, collection, seasons, credits, boxes, development, records, and leaderboard entry. Your sign-in account and linked login methods are not deleted.</p><div class="account-actions"><button class="secondary-button" data-close-modal>Keep franchise</button><button class="danger-button" data-action="franchise-reset-confirm">Yes, erase franchise</button></div></div>`;
+    openModal();
+  }
+
+  async function resetFranchise() {
+    clearTimeout(autoTimer);autoTimer=null;
+    const cloudUser=window.PGCloud?.user;
+    const fresh=defaultState();
+    fresh.teamName=state.teamName;fresh.teamColor=state.teamColor;fresh.cloudOwnerUid=cloudUser?.uid||null;fresh.localSavedAt=Date.now();
+    state=fresh;savedState=JSON.parse(JSON.stringify(state));
+    try { localStorage.setItem(SAVE_KEY,JSON.stringify(state)); } catch {}
+    closeModal();render();
+    try {
+      if(cloudUser?.uid&&window.PGCloud?.resetFranchise)await window.PGCloud.resetFranchise(JSON.parse(JSON.stringify(state)));
+      toast(cloudUser?.uid?"Franchise reset on this device and Firebase.":"Franchise reset on this device.");
+    } catch(error){
+      cloudError(error);
+      toast("Local franchise reset. Firebase reset could not be confirmed.");
+    }
   }
 
   function prepareFranchiseGame() {
@@ -1010,8 +1037,8 @@
     app.innerHTML=`${renderFranchiseNav("stats")}<section class="collection-head stats-head"><div><p class="eyebrow">${esc(LEAGUE_TIERS[f.seasonTier??humanTier()].name)} · Season ${f.season} · ${f.seasonComplete?"Final":"through Week "+week}</p><h1 class="section-title">League history center</h1><p class="lede">Every divisional game feeds the leaderboards, award races, and permanent record book. Select any name to open the full player profile.</p></div><button class="secondary-button" data-action="player-directory">Find any player</button></section><nav class="stats-tabs" aria-label="Statistics sections">${[["leaders","League leaders"],["awards",f.seasonComplete?"Award winners":"Award race"],["records","Record book"]].map(([id,label])=>`<button class="${tab===id?"active":""}" data-action="stats-tab" data-tab="${id}">${label}</button>`).join("")}</nav><section class="stats-content">${tab==="leaders"?`<div class="leaderboard-grid">${leaderCards}</div>`:tab==="awards"?awardsContent:recordsContent}</section>`;
   }
 
-  function boxPool(type,slot) {
-    if(type==="pokeball")return POKEMON.filter((p)=>!p.legendary);
+  function boxPool(type,slot,pokeRareSlot=-1) {
+    if(type==="pokeball")return POKEMON.filter((p)=>!p.legendary&&p.rarity===(slot===pokeRareSlot?"rare":"common"));
     if(type==="greatball"&&slot===0)return POKEMON.filter((p)=>!p.legendary&&["uncommon","rare","ultra"].includes(p.rarity));
     if(type==="greatball")return POKEMON.filter((p)=>!p.legendary);
     if(type==="ultraball"&&slot<2)return POKEMON.filter((p)=>!p.legendary&&["rare","ultra"].includes(p.rarity));
@@ -2153,6 +2180,8 @@
     if(action==="quick-exhibition"){const input=document.getElementById("teamNameInput");if(input?.value.trim())state.teamName=input.value.trim().slice(0,26);startDraft(true);}
     if(action==="start-franchise")startFranchise();
     if(action==="resume-franchise")resumeFranchise();
+    if(action==="franchise-reset-prompt")showFranchiseResetPrompt();
+    if(action==="franchise-reset-confirm")resetFranchise();
     if(action==="continue-save"&&savedState){state=JSON.parse(JSON.stringify(savedState));state.autoplay=false;normalizeFranchiseData(state.franchise);if(state.franchise){const migrated=ensureFranchiseWorld();if(migrated){state.game=null;state.screen="franchise";}if(state.franchise.onboarding.stage!=="complete")state.screen="franchiseOpening";else if(migrated||state.franchise.scheduleVersion!==2||state.franchise.schedule?.length!==5)setupFranchiseSeason();}if(state.game)state.game.animating=false;render();}
     if(action==="draft-pick"){
       if(teamAtPick(state.draftIndex)!==0)return;const p=byId[Number(button.dataset.id)];commitPick(p,0);processCpuTurns();if(state.screen==="draft"){save();render();}
