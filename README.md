@@ -43,7 +43,7 @@ No build command, package installation, database, Firebase project, or server is
   - 3rd: Great Ball Box
   - 4th: two Poké Ball Boxes
   - 5th: Poké Ball Box
-- Poké Ball Boxes contain unevolved, non-legendary Pokémon. Master Ball Boxes can contain any Pokémon and include a boosted legendary slot.
+- Poké Ball Boxes draw non-legendary Pokémon from the full evolution pool. Master Ball Boxes draw uniformly from all 898 Pokémon; every Pokémon is equally weighted.
 - Duplicate pulls become +70 development impact.
 - Manage a permanent collection, a 25-card active roster, and offense/defense/special-teams depth charts.
 - Evolve eligible cards through game-and-win milestones or individual production. Cross-generation and branching evolution paths are included through Gen 8.
@@ -69,7 +69,7 @@ No build command, package installation, database, Firebase project, or server is
 - Context-aware coach suggestions for short yardage, third-and-long, midfield, and the red zone.
 - Wider formation spacing, visible positions, pre-snap motion, staged routes, ball flight, pursuit, blocking, and contact.
 - Manual 1× broadcast pacing plus 2× and 4× controls.
-- **Sim to End** resolves every remaining snap while preserving statistics, fatigue, development, credits, standings, awards, and records.
+- Games simulate live one quarter at a time. Between quarters, coaching adjustments and substitutions can be made before the next quarter begins.
 - Full downs, distance, clock, punts, field goals, touchdowns, turnovers, penalties, overtime, fatigue, substitutions, and type-matchup modifiers.
 
 ## Saving

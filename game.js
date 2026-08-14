@@ -70,10 +70,10 @@
   };
   const LEGENDARIES = new Set(POKEMON.filter((p)=>p.legendary).map((p)=>p.id));
   const BOXES = {
-    pokeball:{ name:"Poké Ball Box", color:"#e75c5c", note:"Three unevolved, non-legendary Pokémon." },
+    pokeball:{ name:"Poké Ball Box", color:"#e75c5c", note:"Three non-legendary Pokémon from the full evolution pool." },
     greatball:{ name:"Great Ball Box", color:"#5f9dff", note:"Three non-legendary Pokémon with one guaranteed uncommon-or-better pull." },
     ultraball:{ name:"Ultra Ball Box", color:"#f4c84e", note:"Three non-legendary Pokémon with two guaranteed rare-or-better pulls." },
-    masterball:{ name:"Master Ball Box", color:"#b784ff", note:"Any Pokémon can appear. One slot has a boosted legendary chance." }
+    masterball:{ name:"Master Ball Box", color:"#b784ff", note:"Every Pokémon can appear, with all 898 equally weighted." }
   };
   const BOX_PRICES = { pokeball:1000, greatball:2600, ultraball:6000 };
   const COLORS = ["#52dcff","#ff775f","#ffc857","#a78bfa","#4ee3a1","#f472b6"];
@@ -131,9 +131,9 @@
   const TUTORIAL_STEPS = [
     { title:"Welcome, Coach", body:"You started with ten Poké Ball Boxes instead of a preset roster. Your best balanced 25 are active; every other pull stays in your collection." },
     { title:"The five-league pyramid", body:"There are 25 permanent clubs. Finish first to move up one Ball League. Finish fifth to move down—except in the bottom division." },
-    { title:"Games and gameplans", body:"Open Depth chart before kickoff, set each position, then call plays live. Sim to End is always available when you want a quick result." },
+    { title:"Games and gameplans", body:"Set your depth chart before kickoff, then watch each quarter simulate live. Between quarters, adjust offense, defense, tempo, fourth-down aggression, blitzes, or substitutions." },
     { title:"Credits and boxes", body:"Games pay League Credits. A win guarantees at least 1,000 LC, exactly enough for a Poké Ball Box in the Box Room." },
-    { title:"Development", body:"Active Pokémon earn games, wins, and impact. Eligible cards can evolve from the Collection once either development path is complete." },
+    { title:"Development", body:"Evolution is a long-term franchise project. Active Pokémon build games, wins, and impact across seasons before becoming eligible to evolve." },
     { title:"A living CPU world", body:"CPU teams never scale to your roster. They persist, open one tier-based offseason box, and sometimes evolve a player. Lower clubs steadily improve." },
     { title:"Leaders and records", body:"Leaders tracks player production, season awards, single-game records, and season records. Select any Pokémon name or image to open its profile." }
   ];
@@ -656,7 +656,7 @@
     app.className="screen franchise-opening-screen";
     app.innerHTML=`<section class="opening-hero"><div><p class="eyebrow">Franchise founding day · ${opened}/10 boxes opened</p><h1>${ready?"Your first club is ready":"Build a team from the unknown"}</h1><p>${ready?`Thirty cards became a balanced active roster of ${f.active.length}. Five reserves remain ready for development and future depth-chart moves.`:"There is no preset roster. Every founding Pokémon comes from these ten Poké Ball Boxes, and the four CPU clubs in your first league were built from the same ten-box level."}</p><div class="opening-progress" aria-label="Founding box progress">${Array.from({length:10},(_,index)=>`<i class="${index<opened?"opened":index===opened?"next":""}">${index+1}</i>`).join("")}</div>${ready?`<button class="primary-button gold" data-action="enter-franchise">Enter the Poké Ball League</button>`:`<button class="primary-button gold" data-action="open-box" data-index="${nextIndex}">Open founding box ${opened+1}</button>`}</div><div class="opening-ball"><span class="box-orb pokeball"></span><strong>${ready?"25 ACTIVE":"3 CARDS"}</strong><small>${ready?"AUTO-BALANCED DEPTH CHART":"NO DUPLICATES DURING FOUNDING"}</small></div></section>
       ${latest?`<section class="box-results founding-results"><div class="panel-head"><div><p class="eyebrow">Latest reveal</p><h2 class="panel-title">${esc(latest.source)}</h2></div><span class="tiny">${opened}/10 COMPLETE</span></div><div class="pull-grid">${latest.results.map((result,index)=>{const p=byId[result.id];return `<article class="pull-card rarity-${p.rarity}" style="--delay:${index*120}ms"><span>FOUNDING CARD</span><button data-action="profile" data-id="${p.id}"><img src="${p.art}" alt="${esc(p.name)}"></button><h3>${esc(p.name)}</h3><p>${p.best.position} · ${p.best.rating} OVR</p><small>Generation ${p.generation} · ${p.rarity}</small></article>`}).join("")}</div></section>`:""}
-      ${ready?`<section class="opening-roster"><div class="panel-head"><div><p class="eyebrow">Top pulls</p><h2 class="panel-title">The foundation</h2></div><span class="tiny">SELECT ANY CARD FOR PROFILE</span></div><div>${top.map((id)=>{const p=byId[id];return `<button data-action="profile" data-id="${id}"><img src="${p.sprite}" alt=""><span><strong>${esc(p.name)}</strong><small>${p.best.position} · Gen ${p.generation}</small></span><b>${p.best.rating}</b></button>`}).join("")}</div></section>`:`<section class="opening-coach"><span>PG</span><div><p class="eyebrow">Professor Gridiron</p><h2>First lesson: every pull matters.</h2><p>Poké Ball Boxes contain only unevolved, non-legendary Pokémon. Position fit matters more than collecting the 25 highest headline ratings, so I’ll build a balanced first depth chart after Box 10.</p></div></section>`}`;
+      ${ready?`<section class="opening-roster"><div class="panel-head"><div><p class="eyebrow">Top pulls</p><h2 class="panel-title">The foundation</h2></div><span class="tiny">SELECT ANY CARD FOR PROFILE</span></div><div>${top.map((id)=>{const p=byId[id];return `<button data-action="profile" data-id="${id}"><img src="${p.sprite}" alt=""><span><strong>${esc(p.name)}</strong><small>${p.best.position} · Gen ${p.generation}</small></span><b>${p.best.rating}</b></button>`}).join("")}</div></section>`:`<section class="opening-coach"><span>PG</span><div><p class="eyebrow">Professor Gridiron</p><h2>First lesson: every pull matters.</h2><p>Poké Ball Boxes can pull non-legendary Pokémon from across the full evolution pool. Position fit matters more than collecting the 25 highest headline ratings, so I’ll build a balanced first depth chart after Box 10.</p></div></section>`}`;
   }
 
   function enterFranchise() {
@@ -691,7 +691,9 @@
 
   function evolutionRequirement(p) {
     const later=p.stage>=1;
-    return later?{games:5,wins:3,impact:320}:{games:2,wins:1,impact:125};
+    // A season is only four played games, so evolution is intentionally a multi-season project.
+    // First evolutions generally take 1.5–2 seasons; later-stage evolutions can take 2–3+.
+    return later?{games:10,wins:5,impact:1200}:{games:7,wins:3,impact:750};
   }
 
   function progressFor(id) {
@@ -878,13 +880,12 @@
   }
 
   function boxPool(type,slot) {
-    if(type==="pokeball")return POKEMON.filter((p)=>!p.prevo&&!p.legendary);
+    if(type==="pokeball")return POKEMON.filter((p)=>!p.legendary);
     if(type==="greatball"&&slot===0)return POKEMON.filter((p)=>!p.legendary&&["uncommon","rare","ultra"].includes(p.rarity));
     if(type==="greatball")return POKEMON.filter((p)=>!p.legendary);
     if(type==="ultraball"&&slot<2)return POKEMON.filter((p)=>!p.legendary&&["rare","ultra"].includes(p.rarity));
     if(type==="ultraball")return POKEMON.filter((p)=>!p.legendary&&p.rarity!=="common");
-    if(type==="masterball"&&slot===0&&Math.random()<.3)return POKEMON.filter((p)=>p.legendary);
-    if(type==="masterball"&&slot===0)return POKEMON.filter((p)=>["ultra","master"].includes(p.rarity));
+    if(type==="masterball")return POKEMON;
     return POKEMON;
   }
 
@@ -1380,7 +1381,7 @@
     state.game={
       seed:Math.floor(Math.random()*1e9), rngStep:0, quarter:1, clock:480, possession:"human", openingReceiver:"human", secondHalfReceiver:"cpu",
       down:1,distance:10,yard:25,scores:{human:0,cpu:0},stats,teamStats:{human:newTeamStat(),cpu:newTeamStat()},fatigue,
-      playLog:[],drives:[],matchups:{},phase:"playing",animating:false,lastEvent:null,playNumber:0,selectedPlay:null,currentPlay:null,franchiseProcessed:false,
+      playLog:[],drives:[],matchups:{},phase:"playing",animating:false,lastEvent:null,playNumber:0,currentPlay:null,franchiseProcessed:false,
       strategy:{ human:{offense:"balanced",tempo:"normal",fourth:"balanced",defense:"balanced",blitz:"normal"}, cpu:{offense:"balanced",tempo:"normal",fourth:"balanced",defense:"balanced",blitz:"normal"} }
     };
     state.screen="game"; state.sidebarTab="plays"; save(); render();
@@ -1449,9 +1450,6 @@
   }
 
   function choosePlayCall(team) {
-    const selected=team==="human"&&state.game.selectedPlay?PLAYBOOK.find((play)=>play.id===state.game.selectedPlay):null;
-    if(selected)return selected;
-    if(team==="human"&&!state.autoplay&&!state.game.quickSim)return contextPlayOptions(team)[0];
     const type=choosePlayType(team);const matching=PLAYBOOK.filter((play)=>play.type===type);
     return choose(matching.length?matching:PLAYBOOK);
   }
@@ -1652,7 +1650,7 @@
     else event=call.type.includes("run")?resolveRun(team,call.type,call):resolvePass(team,call.type,call);
     event.playId=decision&&decision!=="go"?decision:call.id;event.playName=decision==="punt"?"Punt Team":decision==="field-goal"?"Field Goal Unit":call.name;event.formation=decision&&decision!=="go"?"Special Teams":call.formation;
     event.preState={quarter:g.quarter,clock:g.clock,possession:g.possession,down:g.down,distance:g.distance,yard:g.yard,scores:{...g.scores},driveCount:g.drives.length};
-    g.currentPlay=event.playId;g.selectedPlay=null;
+    g.currentPlay=event.playId;
     return event;
   }
 
@@ -1699,8 +1697,7 @@
   function renderGame(animationEvent=null) {
     const g=state.game; const displayYard=animationEvent?.startYard ?? g.yard; const displayTeam=animationEvent?.possession ?? g.possession;
     const shown=animationEvent?.preState||g;
-    const options=contextPlayOptions(g.possession);const selected=PLAYBOOK.find((play)=>play.id===g.selectedPlay)||options[0];
-    const visualPlay=animationEvent?.playId||selected?.id||g.currentPlay;const nodes=fieldFormation(displayTeam,displayYard,visualPlay);
+    const visualPlay=animationEvent?.playId||g.currentPlay;const nodes=fieldFormation(displayTeam,displayYard,visualPlay);
     const possessionName=teamName(shown.possession); const qLabel=shown.quarter===5?"OT":`Q${shown.quarter}`;
     const drive=g.drives.slice(0,shown.driveCount??g.drives.length).slice(-8);
     app.className="game-screen";
@@ -1719,12 +1716,12 @@
             ${nodes.map((node)=>{const p=byId[node.id];return `<div class="field-player ${node.team}" data-player="${node.id}" data-role="${node.role}" data-team="${node.team}" style="left:${node.left}%;top:${node.top}%"><span class="player-ring"></span><img src="${p.sprite}" alt="${esc(p.name)}"/><small>${node.role}</small></div>`}).join("")}
             <i class="football" id="football" style="left:${clamp(displayYard-4,2,98)}%;top:50%"></i>
             <div class="play-banner" id="playBanner"><strong></strong><span></span></div>
-            <div class="field-status"><span>${animationEvent?"LIVE":g.possession==="human"?"OFFENSE IN HUDDLE":"DEFENSE ON FIELD"}</span><strong>${esc(animationEvent?.playName||selected?.name||"Awaiting call")}</strong><small>${esc(animationEvent?.formation||selected?.formation||"Base 4–3")}</small></div>
+            <div class="field-status"><span>${animationEvent?"LIVE":state.autoplay?"QUARTER SIM LIVE":"QUARTER READY"}</span><strong>${esc(animationEvent?.playName||"Quarter simulation")}</strong><small>${esc(animationEvent?.formation||"Coordinators call every snap")}</small></div>
           </div></div>
-          <div class="playcall-strip ${g.possession!=="human"?"cpu-call":""}">${g.animating?`<div class="cpu-huddle"><span class="live-dot"></span><strong>${esc(animationEvent?.playName||"Play in progress")}</strong><small>${esc(animationEvent?.formation||"")} · watch the routes develop</small></div>`:g.possession==="human"?`<div class="playcall-label"><span>OFFENSIVE HUDDLE</span><strong>Choose the call</strong></div><div class="playcall-options">${options.map((play,index)=>`<button class="${selected?.id===play.id?"active":""}" data-action="select-play" data-play="${play.id}"><span>${index===0?"COACH PICK":play.family.toUpperCase()}</span><strong>${esc(play.name)}</strong><small>${esc(play.formation)} · ${esc(play.description)}</small></button>`).join("")}</div>`:`<div class="cpu-huddle"><span class="live-dot"></span><strong>${esc(state.cpuName)} are in the huddle</strong><small>Your Base 4–3 defense is set from the quarter plan.</small></div>`}</div>
+          <div class="playcall-strip cpu-call"><div class="cpu-huddle"><span class="live-dot"></span><strong>${g.animating?esc(animationEvent?.playName||"Play in progress"):state.autoplay?"Live quarter simulation running":"Quarter ready to simulate"}</strong><small>${g.animating?`${esc(animationEvent?.formation||"")} · coordinators are calling the game`:"Your quarterly gameplan controls play selection. No manual snap calls."}</small></div></div>
           <div class="broadcast-controls">
             <div class="down-chip"><b>${shown.down}${shown.down===1?"st":shown.down===2?"nd":shown.down===3?"rd":"th"} & ${shown.distance}</b><span>${esc(possessionName)}<br>AT THE ${shown.yard}</span></div>
-            <div class="control-cluster"><div class="speed-select">${[1,2,4].map((speed)=>`<button class="${state.speed===speed?"active":""}" data-action="speed" data-speed="${speed}">${speed}×</button>`).join("")}</div><button class="secondary-button" data-action="toggle-auto">${state.autoplay?"Pause":"Auto play"}</button><button class="secondary-button sim-button" data-action="sim-to-end" ${g.animating||g.phase!=="playing"?"disabled":""}>Sim to End</button><button class="primary-button" data-action="next-play" ${g.animating||g.phase!=="playing"?"disabled":""}>${g.possession==="human"?`Snap ${esc(selected?.name||"play")}`:"Watch next snap"}</button></div>
+            <div class="control-cluster"><div class="speed-select">${[1,2,4].map((speed)=>`<button class="${state.speed===speed?"active":""}" data-action="speed" data-speed="${speed}">${speed}×</button>`).join("")}</div><button class="primary-button" data-action="start-quarter-sim" ${g.animating||g.phase!=="playing"||state.autoplay?"disabled":""}>${g.quarter===5?"Sim overtime live":`Sim Q${g.quarter} live`}</button></div>
           </div>
         </div>
         <aside class="game-sidebar"><div class="sidebar-tabs">${[["plays","Play log"],["stats","Live stats"],["matchups","Matchups"]].map(([id,label])=>`<button class="${state.sidebarTab===id?"active":""}" data-action="sidebar-tab" data-tab="${id}">${label}</button>`).join("")}</div><div class="sidebar-content">${gameSidebarContent(animationEvent?.id)}</div><div class="drive-strip">${drive.map((d)=>`<span class="drive-dot ${d.points?"score":""}">${d.team==="human"?teamInitials(state.teamName):teamInitials(state.cpuName)}<br>${d.result}</span>`).join("")||`<span class="tiny">OPENING DRIVE</span>`}</div></aside>
@@ -1841,7 +1838,7 @@
         <div class="report-panel"><div class="panel-head"><h2 class="panel-title">Team comparison</h2><span class="tiny">${ordinal(g.quarter).toUpperCase()} QUARTER</span></div>${[[h.totalYards,"Total yards",c.totalYards],[h.passYards,"Passing",c.passYards],[h.rushYards,"Rushing",c.rushYards],[h.firstDowns,"First downs",c.firstDowns],[h.turnovers,"Turnovers",c.turnovers]].map(([a,label,b])=>`<div class="team-comparison"><span>${a}</span><b>${label}</b><span>${b}</span></div>`).join("")}</div>
         <div class="report-panel"><div class="panel-head"><h2 class="panel-title">Offensive plan</h2><span class="tiny">APPLIES NEXT QUARTER</span></div><div class="strategy-grid"><div class="strategy-field"><label>Play emphasis</label><select class="strategy-select" data-strategy="offense"><option value="balanced" ${g.strategy.human.offense==="balanced"?"selected":""}>Balanced</option><option value="ground" ${g.strategy.human.offense==="ground"?"selected":""}>Ground control</option><option value="air" ${g.strategy.human.offense==="air"?"selected":""}>Air attack</option><option value="aggressive" ${g.strategy.human.offense==="aggressive"?"selected":""}>Attack vertically</option></select></div><div class="strategy-field"><label>Tempo</label><select class="strategy-select" data-strategy="tempo"><option value="slow" ${g.strategy.human.tempo==="slow"?"selected":""}>Drain clock</option><option value="normal" ${g.strategy.human.tempo==="normal"?"selected":""}>Normal</option><option value="fast" ${g.strategy.human.tempo==="fast"?"selected":""}>Up-tempo</option></select></div><div class="strategy-field"><label>Fourth downs</label><select class="strategy-select" data-strategy="fourth"><option value="conservative" ${g.strategy.human.fourth==="conservative"?"selected":""}>Conservative</option><option value="balanced" ${g.strategy.human.fourth==="balanced"?"selected":""}>Situational</option><option value="aggressive" ${g.strategy.human.fourth==="aggressive"?"selected":""}>Aggressive</option></select></div></div></div>
         <div class="report-panel"><div class="panel-head"><h2 class="panel-title">Defensive plan</h2><span class="tiny">APPLIES NEXT QUARTER</span></div><div class="strategy-grid"><div class="strategy-field"><label>Defensive focus</label><select class="strategy-select" data-strategy="defense"><option value="balanced" ${g.strategy.human.defense==="balanced"?"selected":""}>Balanced</option><option value="run" ${g.strategy.human.defense==="run"?"selected":""}>Commit to run</option><option value="pass" ${g.strategy.human.defense==="pass"?"selected":""}>Protect the pass</option></select></div><div class="strategy-field"><label>Blitz frequency</label><select class="strategy-select" data-strategy="blitz"><option value="light" ${g.strategy.human.blitz==="light"?"selected":""}>Light</option><option value="normal" ${g.strategy.human.blitz==="normal"?"selected":""}>Normal</option><option value="heavy" ${g.strategy.human.blitz==="heavy"?"selected":""}>Heavy</option></select></div></div></div>
-      </section><div class="report-actions"><button class="secondary-button" data-action="quarter-depth">Open depth chart & substitute</button><button class="secondary-button sim-button" data-action="sim-to-end">Sim rest of game</button><button class="primary-button" data-action="resume-quarter">${g.quarter===4?(g.scores.human===g.scores.cpu?"Start overtime":"Finish game"):g.quarter===5?"Finish game":`Begin ${ordinal(g.quarter+1)} quarter`}</button></div>`;
+      </section><div class="report-actions"><button class="secondary-button" data-action="quarter-depth">Open depth chart & substitute</button><button class="primary-button" data-action="resume-quarter">${g.quarter===4?(g.scores.human===g.scores.cpu?"Start overtime live sim":"Finish game"):g.quarter===5?"Finish game":`Sim ${ordinal(g.quarter+1)} quarter live`}</button></div>`;
   }
 
   function advanceQuarterState() {
@@ -1853,29 +1850,14 @@
     return true;
   }
 
-  function showSimToEndConfirm() {
-    const g=state.game;if(!g||g.animating)return;
-    const qLabel=g.quarter===5?"OT":`Q${g.quarter}`;
-    modalContent.innerHTML=`<div class="modal-head"><div><p class="eyebrow">Quick finish</p><h2 class="panel-title" id="modalTitle">Sim to the final whistle?</h2></div><button class="close-button" data-close-modal>×</button></div><div class="sim-confirm"><div class="sim-confirm-score"><span>${esc(state.teamName)}</span><strong>${g.scores.human}–${g.scores.cpu}</strong><span>${esc(state.cpuName)}</span></div><p>The engine will resolve every remaining snap from ${qLabel} ${formatClock(g.clock)} using the current rosters, fatigue, play strategy, matchups, and ratings. All resulting statistics, Franchise development, standings, and season rewards will count normally.</p><div class="sim-confirm-actions"><button class="secondary-button" data-close-modal>Keep playing</button><button class="primary-button" data-action="confirm-sim-to-end">Sim remaining game</button></div></div>`;
-    openModal();
-  }
-
-  function simToEnd() {
-    const g=state.game;if(!g||g.animating)return;
-    clearTimeout(autoTimer);state.autoplay=false;closeModal();g.animating=false;
-    let simulated=0;g.quickSim=true;
-    while(g.phase!=="final"&&simulated<700){
-      if(g.phase==="quarter"){if(!advanceQuarterState())break;continue;}
-      if(g.phase!=="playing"){g.phase="final";break;}
-      const event=buildNextEvent();applyEvent(event);simulated++;
-    }
-    g.quickSim=false;if(g.phase!=="final")g.phase="final";
-    state.postgameTab="summary";state.screen="postgame";save();render();toast(`Simulated ${simulated} remaining snap${simulated===1?"":"s"}.`);
-  }
-
   function resumeQuarter() {
     if(!advanceQuarterState()){state.screen="postgame";save();render();return;}
-    state.screen="game";save();render();
+    state.screen="game";state.autoplay=true;save();render();autoTimer=setTimeout(runNextPlay,240);
+  }
+
+  function startQuarterSim() {
+    const g=state.game;if(!g||g.animating||g.phase!=="playing"||state.autoplay)return;
+    state.autoplay=true;save();render();autoTimer=setTimeout(runNextPlay,240);
   }
 
   function topLeaders() {
@@ -1992,13 +1974,7 @@
     if(action==="bench-player")substitutePlayer(Number(button.dataset.id));
     if(action==="optimize-lineup"){state.humanLineup=autoAssign(state.humanRoster);state.leagueLineups[0]=state.humanLineup;if(state.mode==="franchise"&&state.franchise){state.franchise.lineup=JSON.parse(JSON.stringify(state.humanLineup));syncHumanWorldTeam();}state.selectedSlot=null;save();render();toast("Depth chart optimized across all 22 starting positions.");}
     if(action==="start-game")startGame();
-    if(action==="next-play")runNextPlay();
-    if(action==="sim-to-end")showSimToEndConfirm();
-    if(action==="confirm-sim-to-end")simToEnd();
-    if(action==="select-play"&&state.game&&!state.game.animating){state.game.selectedPlay=button.dataset.play;save();render();}
-    if(action==="toggle-auto"){
-      state.autoplay=!state.autoplay;render();if(state.autoplay)autoTimer=setTimeout(runNextPlay,240);
-    }
+    if(action==="start-quarter-sim")startQuarterSim();
     if(action==="speed"){state.speed=Number(button.dataset.speed);save();render();}
     if(action==="sidebar-tab"){state.sidebarTab=button.dataset.tab;render();}
     if(action==="explain-play")explainPlay(Number(button.dataset.event));
