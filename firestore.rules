@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/saves/{saveId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /leaderboards/{userId} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.uid == userId
+        && request.resource.data.keys().hasOnly([
+          'uid','teamName','tier','tierName','season','careerWins','careerLosses',
+          'championships','rosterOvr','rankScore','updatedAt'
+        ])
+        && request.resource.data.teamName is string
+        && request.resource.data.teamName.size() <= 26
+        && request.resource.data.tier is int
+        && request.resource.data.tier >= 0
+        && request.resource.data.tier <= 4
+        && request.resource.data.season is int
+        && request.resource.data.season >= 1
+        && request.resource.data.careerWins is int
+        && request.resource.data.careerWins >= 0
+        && request.resource.data.careerLosses is int
+        && request.resource.data.careerLosses >= 0
+        && request.resource.data.championships is int
+        && request.resource.data.championships >= 0
+        && request.resource.data.rosterOvr is int
+        && request.resource.data.rosterOvr >= 0
+        && request.resource.data.rosterOvr <= 100
+        && request.resource.data.rankScore is int;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

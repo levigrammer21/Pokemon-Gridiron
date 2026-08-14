@@ -7,8 +7,8 @@
   const modalContent = document.getElementById("modalContent");
   const SAVE_KEY = "pokemon-gridiron-save-v4";
   const LEGACY_SAVE_KEY = "pokemon-gridiron-151-save-v2";
-  const VERSION = 11;
-  const DISPLAY_VERSION = "4.0.0";
+  const VERSION = 12;
+  const DISPLAY_VERSION = "4.1.1";
   const TEAM_COUNT = 6;
   const FRANCHISE_TEAM_COUNT = 5;
   const ROSTER_SIZE = 25;
@@ -131,7 +131,7 @@
   const TUTORIAL_STEPS = [
     { title:"Welcome, Coach", body:"You started with ten Poké Ball Boxes instead of a preset roster. Your best balanced 25 are active; every other pull stays in your collection." },
     { title:"The five-league pyramid", body:"There are 25 permanent clubs. Finish first to move up one Ball League. Finish fifth to move down—except in the bottom division." },
-    { title:"Games and gameplans", body:"Set your depth chart before kickoff, then watch each quarter simulate live. Between quarters, adjust offense, defense, tempo, fourth-down aggression, blitzes, or substitutions." },
+    { title:"Games and gameplans", body:"Set your depth chart before kickoff, then watch each quarter simulate live. Between quarters, adjust offense, defense, tempo, fourth-down aggression, blitzes, or substitutions—or use Sim to End when you want to fast-forward the rest." },
     { title:"Credits and boxes", body:"Games pay League Credits. A win guarantees at least 1,000 LC, exactly enough for a Poké Ball Box in the Box Room." },
     { title:"Development", body:"Evolution is a long-term franchise project. Active Pokémon build games, wins, and impact across seasons before becoming eligible to evolve." },
     { title:"A living CPU world", body:"CPU teams never scale to your roster. They persist, open one tier-based offseason box, and sometimes evolve a player. Lower clubs steadily improve." },
@@ -268,7 +268,7 @@
       humanLineup:null, cpuLineup:null, rosterTab:"offense", selectedSlot:null, returnToReport:false,
       game:null, sidebarTab:"plays", postgameTab:"summary", speed:1, autoplay:false, sound:false,
       franchise:null, collectionSearch:"", collectionGen:"all", collectionSort:"rating", statsTab:"leaders",
-      playerSearch:"", playerGen:"all", lastScreen:"home"
+      playerSearch:"", playerGen:"all", lastScreen:"home", localSavedAt:0, cloudOwnerUid:null
     };
   }
 
@@ -394,10 +394,141 @@
     } catch { return null; }
   }
 
-  function save() {
-    state.lastScreen=state.screen;
+  function leaderboardSnapshot(source=state) {
+    const f=source?.franchise;if(!f)return null;
+    const archives=f.seasonArchive||[];
+    const currentArchived=archives.some((item)=>item.season===f.season);
+    const current=(f.standings||[]).find((row)=>row.teamIndex===0)||{w:0,l:0};
+    const careerWins=archives.reduce((sum,item)=>sum+(item.record?.w||0),0)+(currentArchived?0:(current.w||0));
+    const careerLosses=archives.reduce((sum,item)=>sum+(item.record?.l||0),0)+(currentArchived?0:(current.l||0));
+    const championships=archives.filter((item)=>item.placement===1).length;
+    let tier=0,rosterOvr=0;
+    try { tier=clamp(Number(source.franchise.worldTeams?.find((team)=>team.id==="human")?.tier)||0,0,4); } catch {}
+    try {
+      const human=source.franchise.worldTeams?.find((team)=>team.id==="human");
+      const roster=(human?.roster||source.franchise.active||[]).filter((id)=>byId[id]);
+      rosterOvr=roster.length?Math.round(roster.reduce((sum,id)=>sum+byId[id].best.rating,0)/roster.length):0;
+    } catch {}
+    const rankScore=Math.trunc(tier*1000000000+championships*1000000+careerWins*1000+rosterOvr);
+    return {
+      teamName:String(source.teamName||"Gridiron Club").slice(0,26), tier, tierName:LEAGUE_TIERS[tier]?.name||"Poké Ball League",
+      season:Math.max(1,Math.trunc(Number(f.season)||1)), careerWins, careerLosses, championships, rosterOvr, rankScore
+    };
+  }
+
+  function persistLocalOnly() {
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); savedState = JSON.parse(JSON.stringify(state)); } catch {}
   }
+
+  function save() {
+    state.lastScreen=state.screen;
+    state.localSavedAt=Date.now();
+    const cloudUser=window.PGCloud?.user;
+    if(cloudUser?.uid)state.cloudOwnerUid=cloudUser.uid;
+    persistLocalOnly();
+    if(cloudUser?.uid)window.PGCloud.queueSave(JSON.parse(JSON.stringify(state)),leaderboardSnapshot(state));
+  }
+
+  window.PGGetLocalState=()=>{
+    const source=savedState||state;
+    return {state:JSON.parse(JSON.stringify(source)),leaderboard:leaderboardSnapshot(source)};
+  };
+
+  const cloudUi={smsSent:false,phoneMode:"signin",lastSaved:0,leaderboard:null,leaderboardLoading:false};
+
+  function syncCloudHeader() {
+    const button=document.getElementById("accountButton");if(!button)return;
+    const user=window.PGCloud?.user;
+    button.classList.toggle("signed-in",Boolean(user));
+    const label=button.querySelector("b");if(label)label.textContent=user?(user.displayName||user.email||user.phoneNumber||"Account").split(" ")[0]:"Sign in";
+    button.title=user?"Account, cloud save & leaderboard":"Sign in for cloud saves & leaderboards";
+  }
+
+  function cloudError(error) {
+    toast(window.PGCloud?.errorMessage?.(error)||error?.message||"Firebase could not complete that request.");
+  }
+
+  function accountProviderLabel(id) { return id==="google.com"?"Google":id==="password"?"Email":id==="phone"?"Phone":id; }
+
+  function renderAccountModal() {
+    const cloud=window.PGCloud,user=cloud?.user,providers=user?.providers||[];
+    const providerChips=user?providers.map((id)=>`<span class="provider-chip">${esc(accountProviderLabel(id))}</span>`).join(""):"";
+    modalContent.innerHTML=`<div class="modal-head"><div><p class="eyebrow">Pokémon Gridiron account</p><h2 class="panel-title" id="modalTitle">${user?"Cloud franchise":"Sign in & sync"}</h2></div><button class="close-button" data-close-modal>×</button></div>
+      ${!cloud?.ready?`<div class="account-status"><strong>Connecting to Firebase…</strong><p>Your local save remains available.</p></div>`:user?`
+      <div class="account-profile"><div class="account-avatar">${esc((user.displayName||user.email||user.phoneNumber||"P").charAt(0).toUpperCase())}</div><div><strong>${esc(user.displayName||user.email||user.phoneNumber||"Gridiron coach")}</strong><small>${esc(user.email||user.phoneNumber||user.uid)}</small><div class="provider-row">${providerChips}</div></div></div>
+      <div class="cloud-save-note"><strong>Cloud save active</strong><p>Franchise and draft progress still save locally, with signed-in progress mirrored to this Firebase account.</p></div>
+      <div class="auth-grid">
+        ${providers.includes("google.com")?"":`<button class="secondary-button" data-action="auth-link-google">Link Google</button>`}
+        ${providers.includes("password")?"":`<div class="auth-form"><strong>Link email + password</strong><input id="authEmail" type="email" autocomplete="email" placeholder="Email"><input id="authPassword" type="password" autocomplete="new-password" placeholder="Password (6+ characters)"><button class="secondary-button" data-action="auth-link-email">Link email</button></div>`}
+        ${providers.includes("phone")?"":`<div class="auth-form"><strong>Link phone</strong><input id="authPhone" type="tel" autocomplete="tel" placeholder="+1 555 555 0123">${cloudUi.smsSent&&cloudUi.phoneMode==="link"?`<input id="authSmsCode" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit SMS code"><button class="primary-button" data-action="auth-phone-confirm">Link phone</button>`:`<button class="secondary-button" data-action="auth-phone-send" data-mode="link">Send SMS code</button>`}<div id="phoneRecaptcha" class="recaptcha-slot"></div></div>`}
+      </div>
+      <div class="account-actions"><button class="primary-button" data-action="show-cloud-leaderboard">Global leaderboard</button><button class="quiet-button danger" data-action="auth-signout">Sign out</button></div>`:`
+      <div class="auth-grid signed-out">
+        <button class="primary-button auth-google" data-action="auth-google">Continue with Google</button>
+        <div class="auth-form"><strong>Email + password</strong><input id="authEmail" type="email" autocomplete="email" placeholder="Email"><input id="authPassword" type="password" autocomplete="current-password" placeholder="Password"><div class="auth-form-actions"><button class="primary-button" data-action="auth-email-signin">Sign in</button><button class="secondary-button" data-action="auth-email-create">Create account</button></div></div>
+        <div class="auth-form"><strong>Phone</strong><input id="authPhone" type="tel" autocomplete="tel" placeholder="+1 555 555 0123">${cloudUi.smsSent&&cloudUi.phoneMode==="signin"?`<input id="authSmsCode" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit SMS code"><button class="primary-button" data-action="auth-phone-confirm">Verify & sign in</button>`:`<button class="secondary-button" data-action="auth-phone-send" data-mode="signin">Send SMS code</button>`}<div id="phoneRecaptcha" class="recaptcha-slot"></div></div>
+      </div><p class="auth-fineprint">Signing in enables cross-device saves and the franchise leaderboard. Phone verification may send an SMS.</p>`}
+      `;
+    openModal();
+  }
+
+  async function renderCloudLeaderboard() {
+    modalContent.innerHTML=`<div class="modal-head"><div><p class="eyebrow">Cloud competition</p><h2 class="panel-title" id="modalTitle">Franchise leaderboard</h2></div><button class="close-button" data-close-modal>×</button></div><div class="leaderboard-loading">Loading leaderboard…</div>`;openModal();
+    try {
+      cloudUi.leaderboard=await window.PGCloud.getLeaderboard();
+      const rows=cloudUi.leaderboard||[],myUid=window.PGCloud?.user?.uid;
+      modalContent.innerHTML=`<div class="modal-head"><div><p class="eyebrow">Top 100 franchises</p><h2 class="panel-title" id="modalTitle">Franchise leaderboard</h2></div><button class="close-button" data-close-modal>×</button></div>
+        <div class="leaderboard-key"><span>Ranked by league tier, championships, career wins, then roster OVR.</span><button class="text-button" data-action="account-open">Account</button></div>
+        <div class="cloud-leaderboard">${rows.map((row)=>`<div class="leaderboard-row ${row.uid===myUid?"my-rank":""}"><b>#${row.rank}</b><div><strong>${esc(row.teamName||"Gridiron Club")}</strong><small>${esc(row.tierName||LEAGUE_TIERS[row.tier||0]?.name||"Poké Ball League")} · Season ${row.season||1}</small></div><span><strong>${row.championships||0}</strong><small>TITLES</small></span><span><strong>${row.careerWins||0}-${row.careerLosses||0}</strong><small>CAREER</small></span><span><strong>${row.rosterOvr||0}</strong><small>OVR</small></span></div>`).join("")||`<div class="empty-state"><strong>No franchises are ranked yet</strong><p>Sign in and save a Franchise to claim the first spot.</p></div>`}</div>`;
+    } catch(error) {
+      modalContent.innerHTML=`<div class="modal-head"><div><p class="eyebrow">Cloud competition</p><h2 class="panel-title" id="modalTitle">Franchise leaderboard</h2></div><button class="close-button" data-close-modal>×</button></div><div class="empty-state"><strong>Leaderboard unavailable</strong><p>${esc(window.PGCloud?.errorMessage?.(error)||error?.message||"Check Firebase setup and Firestore rules.")}</p></div>`;
+    }
+  }
+
+  function meaningfulSave(candidate) { return Boolean(candidate?.franchise||candidate?.game||(candidate?.draftPicks?.length)); }
+
+  function applyCloudSave(cloudState,cloudUpdatedAt,userId) {
+    if(!cloudState)return;
+    state={...defaultState(),...JSON.parse(JSON.stringify(cloudState)),version:VERSION,autoplay:false};
+    if(state.game)state.game.animating=false;
+    normalizeFranchiseData(state.franchise);
+    state.cloudOwnerUid=userId||state.cloudOwnerUid||null;
+    state.localSavedAt=Number(cloudState.localSavedAt)||Number(cloudUpdatedAt)||Date.now();
+    persistLocalOnly();
+    closeModal();render();toast("Cloud save loaded.");
+  }
+
+  function showCloudConflict(detail,localCandidate) {
+    const cloudNewer=(detail.cloudUpdatedAt||0)>(localCandidate.localSavedAt||0);
+    modalContent.innerHTML=`<div class="modal-head"><div><p class="eyebrow">Save conflict</p><h2 class="panel-title" id="modalTitle">Choose which franchise to keep</h2></div><button class="close-button" data-close-modal>×</button></div><div class="save-conflict"><p>${cloudNewer?"Your Firebase save is newer than this device save.":"This device save is newer than the Firebase save."} Nothing will be overwritten until you choose.</p><div class="conflict-grid"><article><span>CLOUD</span><strong>${esc(detail.cloudState?.teamName||"Gridiron save")}</strong><small>${detail.cloudState?.franchise?`Season ${detail.cloudState.franchise.season||1}`:"Quick Draft / home"}</small><button class="primary-button" data-action="cloud-use">Use cloud save</button></article><article><span>THIS DEVICE</span><strong>${esc(localCandidate.teamName||"Gridiron save")}</strong><small>${localCandidate.franchise?`Season ${localCandidate.franchise.season||1}`:"Quick Draft / home"}</small><button class="secondary-button" data-action="cloud-keep-local">Keep device & upload</button></article></div></div>`;
+    modalShell.dataset.cloudConflict="1";
+    window.__PGPendingCloud={detail,localCandidate};openModal();
+  }
+
+  window.addEventListener("pg-cloud-auth",(event)=>{
+    syncCloudHeader();
+    const detail=event.detail||{};if(!detail.signedIn)return;
+    const userId=detail.profile?.uid;
+    if(!detail.cloudState){
+      const claimed=JSON.parse(JSON.stringify(savedState||state));
+      claimed.cloudOwnerUid=userId||null;
+      if(!claimed.localSavedAt)claimed.localSavedAt=Date.now();
+      try { localStorage.setItem(SAVE_KEY,JSON.stringify(claimed));savedState=JSON.parse(JSON.stringify(claimed)); } catch {}
+      if(state.cloudOwnerUid===null||state.cloudOwnerUid===undefined)state.cloudOwnerUid=userId||null;
+      window.PGCloud?.saveNow?.(claimed,leaderboardSnapshot(claimed));
+      return;
+    }
+    const localCandidate=savedState||state;
+    if(!meaningfulSave(localCandidate)){applyCloudSave(detail.cloudState,detail.cloudUpdatedAt,userId);return;}
+    if(localCandidate.cloudOwnerUid===userId){
+      if((detail.cloudUpdatedAt||0)>(localCandidate.localSavedAt||0)+1000)applyCloudSave(detail.cloudState,detail.cloudUpdatedAt,userId);
+      else if((localCandidate.localSavedAt||0)>(detail.cloudUpdatedAt||0)+1000)window.PGCloud?.saveNow?.(JSON.parse(JSON.stringify(localCandidate)),leaderboardSnapshot(localCandidate));
+      return;
+    }
+    showCloudConflict(detail,localCandidate);
+  });
+  window.addEventListener("pg-cloud-saved",(event)=>{cloudUi.lastSaved=event.detail?.clientUpdatedAt||Date.now();syncCloudHeader();});
+  window.addEventListener("pg-cloud-error",(event)=>toast(event.detail?.message||"Cloud save failed; local save is still safe."));
 
   function toast(message) {
     const node = document.createElement("div");
@@ -716,7 +847,7 @@
 
   function renderFranchiseNav(active="home") {
     const count=state.franchise?.boxes?.length||0;
-    return `<nav class="franchise-nav" aria-label="Franchise navigation"><button class="${active==="home"?"active":""}" data-action="franchise-home">League home</button><button class="${active==="pyramid"?"active":""}" data-action="show-pyramid">25-team pyramid</button><button class="${active==="collection"?"active":""}" data-action="show-collection">Collection</button><button class="${active==="roster"?"active":""}" data-action="franchise-roster">Depth chart</button><button class="${active==="stats"?"active":""}" data-action="show-league-stats">Leaders</button><button class="${active==="boxes"?"active":""}" data-action="show-boxes">Boxes${count?` <b>${count}</b>`:""}</button><button class="coach-nav" data-action="tutorial-toggle">Coach guide</button></nav>${renderTutorialChat()}`;
+    return `<nav class="franchise-nav" aria-label="Franchise navigation"><button class="${active==="home"?"active":""}" data-action="franchise-home">League home</button><button class="${active==="pyramid"?"active":""}" data-action="show-pyramid">25-team pyramid</button><button class="${active==="collection"?"active":""}" data-action="show-collection">Collection</button><button class="${active==="roster"?"active":""}" data-action="franchise-roster">Depth chart</button><button class="${active==="stats"?"active":""}" data-action="show-league-stats">Leaders</button><button data-action="show-cloud-leaderboard">Leaderboard</button><button class="${active==="boxes"?"active":""}" data-action="show-boxes">Boxes${count?` <b>${count}</b>`:""}</button><button class="coach-nav" data-action="tutorial-toggle">Coach guide</button></nav>${renderTutorialChat()}`;
   }
 
   function renderTutorialChat() {
@@ -1381,7 +1512,7 @@
     state.game={
       seed:Math.floor(Math.random()*1e9), rngStep:0, quarter:1, clock:480, possession:"human", openingReceiver:"human", secondHalfReceiver:"cpu",
       down:1,distance:10,yard:25,scores:{human:0,cpu:0},stats,teamStats:{human:newTeamStat(),cpu:newTeamStat()},fatigue,
-      playLog:[],drives:[],matchups:{},phase:"playing",animating:false,lastEvent:null,playNumber:0,currentPlay:null,franchiseProcessed:false,
+      playLog:[],drives:[],matchups:{},phase:"playing",animating:false,lastEvent:null,playNumber:0,currentPlay:null,franchiseProcessed:false,simToEnd:false,
       strategy:{ human:{offense:"balanced",tempo:"normal",fourth:"balanced",defense:"balanced",blitz:"normal"}, cpu:{offense:"balanced",tempo:"normal",fourth:"balanced",defense:"balanced",blitz:"normal"} }
     };
     state.screen="game"; state.sidebarTab="plays"; save(); render();
@@ -1423,14 +1554,31 @@
   function choosePlayType(team) {
     const g=state.game;
     const style=g.strategy[team].offense;
-    let runChance={ground:.68,air:.25,aggressive:.31,balanced:.47}[style] ?? .47;
-    if (g.down===3 && g.distance>=7) runChance-=.2;
-    if (g.down===3 && g.distance<=2) runChance+=.17;
-    if (g.quarter>=4 && g.clock<150 && g.scores[team]<g.scores[otherTeam(team)]) runChance-=.24;
-    if (random()<runChance) return random()<.56?"inside-run":"outside-run";
+    const scoreDiff=g.scores[team]-g.scores[otherTeam(team)];
+    const late=g.quarter>=4&&g.clock<=150;
+    let runChance={ground:.66,air:.29,aggressive:.32,balanced:.46}[style] ?? .46;
+
+    // Down-and-distance drives the call before scheme preference. Long-yardage downs
+    // lean pass, while short-yardage and clock-killing situations lean run.
+    if(g.down===2){ if(g.distance>=9)runChance-=.09; else if(g.distance<=4)runChance+=.08; }
+    if(g.down===3){ if(g.distance>=8)runChance-=.30; else if(g.distance>=5)runChance-=.18; else if(g.distance<=2)runChance+=.24; }
+    if(g.down===4&&g.distance<=2)runChance+=.13;
+    if(g.yard>=80)runChance+=.04; // condensed red-zone field slightly favors the ground game.
+    if(late&&scoreDiff<0)runChance-=scoreDiff<=-9?.34:.25;
+    if(late&&scoreDiff>0)runChance+=scoreDiff>=9?.27:.18;
+    if(g.quarter>=3&&scoreDiff>=14)runChance+=.12;
+    runChance=clamp(runChance,.12,.82);
+
+    if(random()<runChance) return random()<(g.distance<=3?.68:.57)?"inside-run":"outside-run";
+    let deepChance=style==="aggressive"?.28:.12;
+    let mediumChance=style==="air"?.40:.34;
+    if(g.down>=3&&g.distance>=8){deepChance+=.08;mediumChance+=.08;}
+    if(g.distance<=4){deepChance-=.06;mediumChance-=.05;}
+    if(g.yard>=82)deepChance-=.08;
+    if(late&&scoreDiff<0)deepChance+=.08;
+    deepChance=clamp(deepChance,.05,.42);mediumChance=clamp(mediumChance,.22,.52);
     const roll=random();
-    if (style==="aggressive") return roll<.24?"short-pass":roll<.6?"medium-pass":"deep-pass";
-    return roll<.48?"short-pass":roll<.82?"medium-pass":"deep-pass";
+    return roll<1-deepChance-mediumChance?"short-pass":roll<1-deepChance?"medium-pass":"deep-pass";
   }
 
   function contextPlayOptions(team) {
@@ -1491,11 +1639,17 @@
     const tackler=playerAt(defense,"defense",tackleSlot);
     const tackle=contest(tackler,carrier,rating(tackler,"tackle"),weighted([rating(carrier,"carrying"),.46],[rating(carrier,"elusiveness"),.34],[rating(carrier,"trucking"),.2]),boxFocus==="run"?3:0,"actor");
     const tackleMatch=recordMatchup(tackler,carrier,"Open-field tackle",tackle.actorScore,tackle.targetScore,tackle.typeBonus,tackle.winner);
-    let yards=Math.round(3.2+block.margin*.14+(rating(carrier,"vision")-70)*.05+(random()-.5)*5);
+    // Most NFL-style rushes live in a tight band around the line of scrimmage. Blocking
+    // creates the baseline; broken tackles create the comparatively rare explosives.
+    let yards=Math.round(2.7+block.margin*.11+(rating(carrier,"vision")-70)*.035+(random()+random()-1)*3.2);
     let missed=false;
-    if (tackle.margin<-3) { yards+=Math.round(4+random()*9+(rating(carrier,"speed")-rating(tackler,"pursuit"))*.09); missed=true; statFor(tackler).missedTackles++; }
-    else statFor(tackler).tackles++;
-    yards=clamp(yards,-5,38);
+    if(tackle.margin<-5){
+      yards+=Math.round(3+random()*6+(rating(carrier,"speed")-rating(tackler,"pursuit"))*.07);
+      missed=true;statFor(tackler).missedTackles++;
+      if(tackle.margin<-15&&random()<.24)yards+=Math.round(6+random()*14);
+    } else statFor(tackler).tackles++;
+    if(block.margin<-12&&random()<.35)yards-=Math.round(1+random()*3);
+    yards=clamp(yards,-6,45);
     const fumble=random()<Math.max(.004,(tackle.margin-16)*.0015+(100-rating(carrier,"carrying"))*.00035);
     const event={ type,category:"run",yards,startYard:g.yard,possession:team,participants:{carrier:carrier.id,blocker:blocker.id,defender:defender.id,tackler:tackler.id},matchups:[blockMatch,tackleMatch],turnover:fumble };
     statFor(carrier).rushAtt++; statFor(carrier).rushYds+=yards;
@@ -1533,18 +1687,24 @@
     const coverSkill=coverageStyle==="pass"?3:coverageStyle==="run"?-3:0;
     const route=contest(target,cover,weighted([rating(target,"route"),.6],[rating(target,"speed"),.4]),weighted([rating(cover,"manCover"),.6],[rating(cover,"zoneCover"),.4]),(g.strategy[team].offense==="air"?2:0)-coverSkill,"actor");
     const routeMatch=recordMatchup(target,cover,"Route vs coverage",route.actorScore,route.targetScore,route.typeBonus,route.winner);
-    const depthPenalty={short:0,medium:6,deep:13}[depth];
-    const accuracy=weighted([rating(qb,"throwAccuracy"),.64],[rating(qb,"awareness"),.36])-depthPenalty-(pressure?8:0)+(random()-.5)*11;
-    const coverage=weighted([rating(cover,"manCover"),.48],[rating(cover,"zoneCover"),.34],[rating(cover,"awareness"),.18])-route.margin*.22;
-    const interceptChance=clamp((coverage-accuracy-5)*.006+(depth==="deep"?.018:.006),.004,.16);
-    if (random()<interceptChance) {
-      statFor(qb).ints++; statFor(cover).interceptions++; g.teamStats[team].turnovers++;
-      return {type:"interception",category:"pass",yards:Math.round({short:5,medium:14,deep:26}[depth]+random()*9),startYard:g.yard,possession:team,participants:{qb:qb.id,target:target.id,blocker:blocker.id,rusher:rusher.id,cover:cover.id},matchups:[protectionMatch,routeMatch],headline:`Intercepted by ${cover.name}`,detail:`${cover.name} read ${qb.name}, undercut ${target.name}, and returned the ball.`,turnover:true,interception:true};
+    const depthPenalty={short:0,medium:5,deep:12}[depth];
+    const accuracy=weighted([rating(qb,"throwAccuracy"),.67],[rating(qb,"awareness"),.33])-depthPenalty-(pressure?7:0)+(random()-.5)*8;
+    const coverage=weighted([rating(cover,"manCover"),.46],[rating(cover,"zoneCover"),.34],[rating(cover,"awareness"),.20])-route.margin*.20;
+    const separation=route.margin*.26;
+    const interceptChance=clamp(.009+(depth==="deep"?.012:depth==="medium"?.005:0)+(coverage-accuracy-separation)*.0022+(pressure?.006:0),.003,.085);
+    if(random()<interceptChance){
+      statFor(qb).ints++;statFor(cover).interceptions++;g.teamStats[team].turnovers++;
+      return {type:"interception",category:"pass",yards:Math.round({short:4,medium:10,deep:18}[depth]+random()*10),startYard:g.yard,possession:team,participants:{qb:qb.id,target:target.id,blocker:blocker.id,rusher:rusher.id,cover:cover.id},matchups:[protectionMatch,routeMatch],headline:`Intercepted by ${cover.name}`,detail:`${cover.name} read ${qb.name}, jumped the throw intended for ${target.name}, and secured the turnover.`,turnover:true,interception:true};
     }
-    const onTarget=accuracy-coverage+route.margin*.32+(random()-.5)*14;
-    if (onTarget<-6) {
-      if (route.margin<0) statFor(cover).passesDefended++;
-      return {type:"incomplete",category:"pass",yards:0,startYard:g.yard,possession:team,participants:{qb:qb.id,target:target.id,blocker:blocker.id,rusher:rusher.id,cover:cover.id},matchups:[protectionMatch,routeMatch],headline:`Incomplete for ${target.name}`,detail:`${pressure?`${rusher.name}'s pressure affected the throw. `:""}${cover.name} held ${target.name} to a tight window.`,turnover:false,incomplete:true};
+    // A blend of quarterback accuracy, route separation and depth creates a believable
+    // completion band rather than every pass becoming a pure head-to-head roll.
+    const completionBase={short:.75,medium:.64,deep:.42}[depth];
+    const skillAdj=(accuracy-72)*.0055+(route.margin)*.004-(coverage-72)*.0025-(pressure?.10:0);
+    const completionChance=clamp(completionBase+skillAdj,.26,.88);
+    if(random()>completionChance){
+      if(route.margin<-3)statFor(cover).passesDefended++;
+      const reason=pressure?`${rusher.name}'s pressure forces ${qb.name} off platform.`:route.margin<0?`${cover.name} stays in phase and closes the window.`:`${qb.name} cannot connect with ${target.name}.`;
+      return {type:"incomplete",category:"pass",yards:0,startYard:g.yard,possession:team,participants:{qb:qb.id,target:target.id,blocker:blocker.id,rusher:rusher.id,cover:cover.id},matchups:[protectionMatch,routeMatch],headline:`Incomplete for ${target.name}`,detail:reason,turnover:false,incomplete:true};
     }
     const catchScore=rating(target,"hands")+(random()-.5)*14;
     const contestScore=rating(cover,"manCover")-route.margin*.35+(random()-.5)*11;
@@ -1552,7 +1712,7 @@
       statFor(target).drops++; statFor(cover).passesDefended++;
       return {type:"drop",category:"pass",yards:0,startYard:g.yard,possession:team,participants:{qb:qb.id,target:target.id,blocker:blocker.id,rusher:rusher.id,cover:cover.id},matchups:[protectionMatch,routeMatch],headline:`Broken up by ${cover.name}`,detail:`${target.name} got both hands to it, but ${cover.name} disrupted the catch through contact.`,turnover:false,incomplete:true};
     }
-    let yards=Math.round({short:5,medium:11,deep:22}[depth]+Math.max(0,route.margin)*.12+(random()-.5)*6);
+    let yards=Math.round({short:5,medium:12,deep:23}[depth]+Math.max(0,route.margin)*.09+(random()+random()-1)*4);
     const tackler=depth==="deep"?playerAt(defense,"defense",choose(["FS","SS"])):cover;
     const tackle=contest(tackler,target,rating(tackler,"tackle"),weighted([rating(target,"carrying"),.45],[rating(target,"elusiveness"),.55]),0,"actor");
     const tackleMatch=recordMatchup(tackler,target,"Tackle after catch",tackle.actorScore,tackle.targetScore,tackle.typeBonus,tackle.winner);
@@ -1604,8 +1764,15 @@
     const g=state.game; const team=event.possession; const beforeDown=g.down; const beforeDistance=g.distance;
     g.playNumber++; if(event.category!=="penalty")g.teamStats[team].plays++;
     const tempo=g.strategy[team].tempo;
-    let elapsed=event.category==="special"?7:event.incomplete?7:Math.round(21+random()*15);
-    if (tempo==="fast") elapsed=Math.max(8,elapsed-9); if (tempo==="slow") elapsed+=7;
+    const lateClock=g.quarter>=4&&g.clock<=150;
+    let elapsed;
+    if(event.category==="special")elapsed=event.type==="punt"?10:6;
+    else if(event.incomplete)elapsed=Math.round(5+random()*4);
+    else if(event.type==="sack")elapsed=Math.round(24+random()*12);
+    else elapsed=Math.round(27+random()*12);
+    if(tempo==="fast")elapsed=Math.max(event.incomplete?5:12,elapsed-11);
+    if(tempo==="slow")elapsed+=8;
+    if(lateClock&&g.scores[team]<g.scores[otherTeam(team)]&&tempo!=="slow")elapsed=Math.max(event.incomplete?4:9,elapsed-7);
     g.teamStats[team].time+=elapsed; g.clock=Math.max(0,g.clock-elapsed);
     event.q=g.quarter;event.clockBefore=formatClock(g.clock+elapsed);event.downBefore=beforeDown;event.distanceBefore=beforeDistance;event.id=g.playNumber;
 
@@ -1721,7 +1888,7 @@
           <div class="playcall-strip cpu-call"><div class="cpu-huddle"><span class="live-dot"></span><strong>${g.animating?esc(animationEvent?.playName||"Play in progress"):state.autoplay?"Live quarter simulation running":"Quarter ready to simulate"}</strong><small>${g.animating?`${esc(animationEvent?.formation||"")} · coordinators are calling the game`:"Your quarterly gameplan controls play selection. No manual snap calls."}</small></div></div>
           <div class="broadcast-controls">
             <div class="down-chip"><b>${shown.down}${shown.down===1?"st":shown.down===2?"nd":shown.down===3?"rd":"th"} & ${shown.distance}</b><span>${esc(possessionName)}<br>AT THE ${shown.yard}</span></div>
-            <div class="control-cluster"><div class="speed-select">${[1,2,4].map((speed)=>`<button class="${state.speed===speed?"active":""}" data-action="speed" data-speed="${speed}">${speed}×</button>`).join("")}</div><button class="primary-button" data-action="start-quarter-sim" ${g.animating||g.phase!=="playing"||state.autoplay?"disabled":""}>${g.quarter===5?"Sim overtime live":`Sim Q${g.quarter} live`}</button></div>
+            <div class="control-cluster"><div class="speed-select">${[1,2,4].map((speed)=>`<button class="${state.speed===speed?"active":""}" data-action="speed" data-speed="${speed}">${speed}×</button>`).join("")}</div><button class="secondary-button" data-action="sim-to-end" ${g.animating||g.phase!=="playing"||state.autoplay?"disabled":""}>Sim to End</button><button class="primary-button" data-action="start-quarter-sim" ${g.animating||g.phase!=="playing"||state.autoplay?"disabled":""}>${g.quarter===5?"Sim overtime live":`Sim Q${g.quarter} live`}</button></div>
           </div>
         </div>
         <aside class="game-sidebar"><div class="sidebar-tabs">${[["plays","Play log"],["stats","Live stats"],["matchups","Matchups"]].map(([id,label])=>`<button class="${state.sidebarTab===id?"active":""}" data-action="sidebar-tab" data-tab="${id}">${label}</button>`).join("")}</div><div class="sidebar-content">${gameSidebarContent(animationEvent?.id)}</div><div class="drive-strip">${drive.map((d)=>`<span class="drive-dot ${d.points?"score":""}">${d.team==="human"?teamInitials(state.teamName):teamInitials(state.cpuName)}<br>${d.result}</span>`).join("")||`<span class="tiny">OPENING DRIVE</span>`}</div></aside>
@@ -1791,11 +1958,17 @@
       },duration*.66);
     }),snapDelay);
     setTimeout(()=>{
-      if(!state.game)return; state.game.animating=false;
-      if(state.game.phase==="quarter") {state.autoplay=false;state.screen="report";}
-      else if(state.game.phase==="final") {state.autoplay=false;state.screen="postgame";}
+      if(!state.game)return;state.game.animating=false;
+      if(state.game.phase==="quarter"){
+        if(state.game.simToEnd){
+          if(advanceQuarterState()){state.screen="game";state.autoplay=true;}
+          else{state.game.simToEnd=false;state.autoplay=false;state.screen="postgame";}
+        }else{state.autoplay=false;state.screen="report";}
+      }else if(state.game.phase==="final"){
+        state.game.simToEnd=false;state.autoplay=false;state.screen="postgame";
+      }
       save();render();
-      if(state.autoplay&&state.screen==="game") autoTimer=setTimeout(runNextPlay,Math.max(240,900/state.speed));
+      if(state.autoplay&&state.screen==="game")autoTimer=setTimeout(runNextPlay,Math.max(180,760/state.speed));
     },duration+Math.max(300,720/state.speed));
   }
 
@@ -1838,7 +2011,7 @@
         <div class="report-panel"><div class="panel-head"><h2 class="panel-title">Team comparison</h2><span class="tiny">${ordinal(g.quarter).toUpperCase()} QUARTER</span></div>${[[h.totalYards,"Total yards",c.totalYards],[h.passYards,"Passing",c.passYards],[h.rushYards,"Rushing",c.rushYards],[h.firstDowns,"First downs",c.firstDowns],[h.turnovers,"Turnovers",c.turnovers]].map(([a,label,b])=>`<div class="team-comparison"><span>${a}</span><b>${label}</b><span>${b}</span></div>`).join("")}</div>
         <div class="report-panel"><div class="panel-head"><h2 class="panel-title">Offensive plan</h2><span class="tiny">APPLIES NEXT QUARTER</span></div><div class="strategy-grid"><div class="strategy-field"><label>Play emphasis</label><select class="strategy-select" data-strategy="offense"><option value="balanced" ${g.strategy.human.offense==="balanced"?"selected":""}>Balanced</option><option value="ground" ${g.strategy.human.offense==="ground"?"selected":""}>Ground control</option><option value="air" ${g.strategy.human.offense==="air"?"selected":""}>Air attack</option><option value="aggressive" ${g.strategy.human.offense==="aggressive"?"selected":""}>Attack vertically</option></select></div><div class="strategy-field"><label>Tempo</label><select class="strategy-select" data-strategy="tempo"><option value="slow" ${g.strategy.human.tempo==="slow"?"selected":""}>Drain clock</option><option value="normal" ${g.strategy.human.tempo==="normal"?"selected":""}>Normal</option><option value="fast" ${g.strategy.human.tempo==="fast"?"selected":""}>Up-tempo</option></select></div><div class="strategy-field"><label>Fourth downs</label><select class="strategy-select" data-strategy="fourth"><option value="conservative" ${g.strategy.human.fourth==="conservative"?"selected":""}>Conservative</option><option value="balanced" ${g.strategy.human.fourth==="balanced"?"selected":""}>Situational</option><option value="aggressive" ${g.strategy.human.fourth==="aggressive"?"selected":""}>Aggressive</option></select></div></div></div>
         <div class="report-panel"><div class="panel-head"><h2 class="panel-title">Defensive plan</h2><span class="tiny">APPLIES NEXT QUARTER</span></div><div class="strategy-grid"><div class="strategy-field"><label>Defensive focus</label><select class="strategy-select" data-strategy="defense"><option value="balanced" ${g.strategy.human.defense==="balanced"?"selected":""}>Balanced</option><option value="run" ${g.strategy.human.defense==="run"?"selected":""}>Commit to run</option><option value="pass" ${g.strategy.human.defense==="pass"?"selected":""}>Protect the pass</option></select></div><div class="strategy-field"><label>Blitz frequency</label><select class="strategy-select" data-strategy="blitz"><option value="light" ${g.strategy.human.blitz==="light"?"selected":""}>Light</option><option value="normal" ${g.strategy.human.blitz==="normal"?"selected":""}>Normal</option><option value="heavy" ${g.strategy.human.blitz==="heavy"?"selected":""}>Heavy</option></select></div></div></div>
-      </section><div class="report-actions"><button class="secondary-button" data-action="quarter-depth">Open depth chart & substitute</button><button class="primary-button" data-action="resume-quarter">${g.quarter===4?(g.scores.human===g.scores.cpu?"Start overtime live sim":"Finish game"):g.quarter===5?"Finish game":`Sim ${ordinal(g.quarter+1)} quarter live`}</button></div>`;
+      </section><div class="report-actions"><button class="secondary-button" data-action="quarter-depth">Open depth chart & substitute</button>${g.quarter<4||g.scores.human===g.scores.cpu?`<button class="secondary-button" data-action="sim-to-end">Sim to End</button>`:""}<button class="primary-button" data-action="resume-quarter">${g.quarter===4?(g.scores.human===g.scores.cpu?"Start overtime live sim":"Finish game"):g.quarter===5?"Finish game":`Sim ${ordinal(g.quarter+1)} quarter live`}</button></div>`;
   }
 
   function advanceQuarterState() {
@@ -1857,7 +2030,15 @@
 
   function startQuarterSim() {
     const g=state.game;if(!g||g.animating||g.phase!=="playing"||state.autoplay)return;
-    state.autoplay=true;save();render();autoTimer=setTimeout(runNextPlay,240);
+    g.simToEnd=false;state.autoplay=true;save();render();autoTimer=setTimeout(runNextPlay,240);
+  }
+
+  function simGameToEnd() {
+    const g=state.game;if(!g||g.animating)return;
+    if(g.phase==="quarter"){
+      if(!advanceQuarterState()){state.screen="postgame";save();render();return;}
+    }else if(g.phase!=="playing")return;
+    g.simToEnd=true;state.screen="game";state.autoplay=true;save();render();autoTimer=setTimeout(runNextPlay,180);
   }
 
   function topLeaders() {
@@ -1950,6 +2131,18 @@
     const close=event.target.closest("[data-close-modal]");if(close){closeModal();return;}
     const button=event.target.closest("[data-action]");if(!button)return;
     const action=button.dataset.action;
+    if(action==="account-open")renderAccountModal();
+    if(action==="show-cloud-leaderboard")renderCloudLeaderboard();
+    if(action==="auth-google")window.PGCloud?.signInGoogle().catch(cloudError);
+    if(action==="auth-link-google")window.PGCloud?.linkGoogle().then(()=>toast("Google linked to this account.")).catch(cloudError);
+    if(action==="auth-email-signin"){const email=document.getElementById("authEmail")?.value.trim(),password=document.getElementById("authPassword")?.value||"";window.PGCloud?.emailSignIn(email,password).catch(cloudError);}
+    if(action==="auth-email-create"){const email=document.getElementById("authEmail")?.value.trim(),password=document.getElementById("authPassword")?.value||"";window.PGCloud?.emailCreate(email,password).catch(cloudError);}
+    if(action==="auth-link-email"){const email=document.getElementById("authEmail")?.value.trim(),password=document.getElementById("authPassword")?.value||"";window.PGCloud?.linkEmail(email,password).then(()=>{toast("Email sign-in linked.");renderAccountModal();}).catch(cloudError);}
+    if(action==="auth-phone-send"){const phone=document.getElementById("authPhone")?.value.trim();cloudUi.phoneMode=button.dataset.mode||"signin";window.PGCloud?.sendPhoneCode(phone,cloudUi.phoneMode).then(()=>{cloudUi.smsSent=true;renderAccountModal();toast("SMS code sent.");}).catch(cloudError);}
+    if(action==="auth-phone-confirm"){const code=document.getElementById("authSmsCode")?.value.trim();window.PGCloud?.confirmPhoneCode(code).then(()=>{cloudUi.smsSent=false;toast(cloudUi.phoneMode==="link"?"Phone linked to this account.":"Phone sign-in complete.");renderAccountModal();}).catch(cloudError);}
+    if(action==="auth-signout")window.PGCloud?.signOut().then(()=>{closeModal();syncCloudHeader();toast("Signed out. Local save remains on this device.");}).catch(cloudError);
+    if(action==="cloud-use"&&window.__PGPendingCloud){const pending=window.__PGPendingCloud;window.__PGPendingCloud=null;delete modalShell.dataset.cloudConflict;applyCloudSave(pending.detail.cloudState,pending.detail.cloudUpdatedAt,pending.detail.profile?.uid);}
+    if(action==="cloud-keep-local"&&window.__PGPendingCloud){const pending=window.__PGPendingCloud;window.__PGPendingCloud=null;delete modalShell.dataset.cloudConflict;state=JSON.parse(JSON.stringify(pending.localCandidate));state.cloudOwnerUid=pending.detail.profile?.uid||null;save();window.PGCloud?.saveNow?.(JSON.parse(JSON.stringify(state)),leaderboardSnapshot(state));closeModal();render();toast("Device save uploaded to Firebase.");}
     if(action==="focus-setup")document.getElementById("teamSetup")?.scrollIntoView({behavior:"smooth",block:"center"});
     if(action==="focus-quick")document.getElementById("quickModes")?.scrollIntoView({behavior:"smooth",block:"center"});
     if(action==="choose-color"){
@@ -1975,6 +2168,7 @@
     if(action==="optimize-lineup"){state.humanLineup=autoAssign(state.humanRoster);state.leagueLineups[0]=state.humanLineup;if(state.mode==="franchise"&&state.franchise){state.franchise.lineup=JSON.parse(JSON.stringify(state.humanLineup));syncHumanWorldTeam();}state.selectedSlot=null;save();render();toast("Depth chart optimized across all 22 starting positions.");}
     if(action==="start-game")startGame();
     if(action==="start-quarter-sim")startQuarterSim();
+    if(action==="sim-to-end")simGameToEnd();
     if(action==="speed"){state.speed=Number(button.dataset.speed);save();render();}
     if(action==="sidebar-tab"){state.sidebarTab=button.dataset.tab;render();}
     if(action==="explain-play")explainPlay(Number(button.dataset.event));
@@ -2043,4 +2237,6 @@
   document.addEventListener("keydown",(event)=>{if(event.key==="Escape"&&!modalShell.classList.contains("hidden"))closeModal();});
 
   render();
+  syncCloudHeader();
+  setTimeout(()=>window.PGCloud?.emitCurrentAuth?.(),0);
 })();

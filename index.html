@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="game.css">
     <script defer src="pokemon-data.js"></script>
     <script defer src="game.js"></script>
+    <script type="module" src="firebase-sync.js"></script>
   </head>
   <body>
     <div class="stadium-lights" aria-hidden="true"></div>
@@ -25,10 +26,11 @@
         <span>GRIDIRON ASSOCIATION</span>
       </div>
       <nav class="header-actions" aria-label="Application controls">
+        <button class="icon-button account-button" id="accountButton" data-action="account-open" aria-label="Sign in for cloud saves and leaderboards" title="Sign in for cloud saves & leaderboards"><span aria-hidden="true">☁</span><b>Sign in</b></button>
         <button class="icon-button player-search-button" data-action="player-directory" aria-label="Find a player profile" title="Find a player profile"><span aria-hidden="true">⌕</span><b>Players</b></button>
         <button class="icon-button" id="soundToggle" aria-label="Toggle sound" title="Toggle sound">♪</button>
         <button class="quiet-button" id="newGameButton">New Draft</button>
-        <span class="version">v4.0.0</span>
+        <span class="version">v4.1.1</span>
       </nav>
     </header>
 
