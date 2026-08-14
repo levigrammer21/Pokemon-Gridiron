@@ -8,7 +8,7 @@
   const SAVE_KEY = "pokemon-gridiron-save-v4";
   const LEGACY_SAVE_KEY = "pokemon-gridiron-151-save-v2";
   const VERSION = 12;
-  const DISPLAY_VERSION = "4.1.2";
+  const DISPLAY_VERSION = "4.1.3";
   const TEAM_COUNT = 6;
   const FRANCHISE_TEAM_COUNT = 5;
   const ROSTER_SIZE = 25;

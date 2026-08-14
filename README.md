@@ -123,3 +123,9 @@ This is an unofficial, noncommercial private fan project. Pokémon and Pokémon 
 - Poké Ball Boxes are now low-power progression packs: 90% contain three Common cards; 10% contain two Common cards and one Rare card. The 10% roll is per box.
 - The ten founding boxes and Poké Ball League CPU teams use the same basic-box odds, lowering first-season roster power.
 - Franchise Home now includes a two-step Reset Franchise action. It clears franchise progress and the signed-in leaderboard entry while preserving the Firebase account and linked authentication methods.
+
+
+## v4.1.3 cloud-save hotfix
+- Fixed Firestore `Nested arrays are not supported` errors by storing the full private game save as a JSON payload and decoding it when loaded.
+- Cloud loading remains backward-compatible with the earlier object-shaped save field if one exists.
+- Local saves, authentication, linked providers, leaderboard documents, gameplay, and franchise balance are otherwise unchanged.

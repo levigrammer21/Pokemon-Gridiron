@@ -75,7 +75,14 @@ async function loadCloudSave(user) {
   const snap = await getDoc(ref);
   if (!snap.exists()) return { state:null, updatedAt:0 };
   const data = snap.data();
-  return { state:data.state || null, updatedAt:Number(data.clientUpdatedAt) || 0 };
+  let state = null;
+  if (typeof data.stateJson === 'string') {
+    try { state = JSON.parse(data.stateJson); } catch { state = null; }
+  } else if (data.state && typeof data.state === 'object') {
+    // Backward compatibility with any save written before v4.1.3.
+    state = data.state;
+  }
+  return { state, updatedAt:Number(data.clientUpdatedAt) || 0 };
 }
 
 async function writeCloud(state, leaderboard) {
@@ -83,10 +90,13 @@ async function writeCloud(state, leaderboard) {
   if (!user || !state) return false;
   const clientUpdatedAt = Number(state.localSavedAt) || Date.now();
   await setDoc(doc(db, 'users', user.uid, 'saves', 'main'), {
-    state,
+    // Firestore does not allow arrays nested directly inside arrays. The game
+    // state legitimately uses nested arrays for lineups/season structures, so
+    // persist the opaque save payload as JSON and decode it on load.
+    stateJson:JSON.stringify(state),
     clientUpdatedAt,
     updatedAt:serverTimestamp()
-  }, { merge:true });
+  });
   if (leaderboard) {
     await setDoc(doc(db, 'leaderboards', user.uid), {
       ...leaderboard,
@@ -176,7 +186,7 @@ async function resetFranchise(state) {
   pendingSave = null;
   const clientUpdatedAt = Number(state?.localSavedAt) || Date.now();
   await Promise.all([
-    setDoc(doc(db, 'users', user.uid, 'saves', 'main'), { state, clientUpdatedAt, updatedAt:serverTimestamp() }),
+    setDoc(doc(db, 'users', user.uid, 'saves', 'main'), { stateJson:JSON.stringify(state), clientUpdatedAt, updatedAt:serverTimestamp() }),
     deleteDoc(doc(db, 'leaderboards', user.uid))
   ]);
   window.dispatchEvent(new CustomEvent('pg-cloud-saved', { detail:{ clientUpdatedAt } }));
