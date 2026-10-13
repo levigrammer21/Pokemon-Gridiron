@@ -1,50 +1,19 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#07121d">
-    <meta name="description" content="Open ten starter boxes, collect and develop all 898 Pokémon, and climb a persistent 25-team promotion and relegation pyramid—or play the six-team random draft.">
-    <title>Pokémon Gridiron</title>
-    <link rel="icon" type="image/png" href="pokemon-gridiron-logo.png">
-    <link rel="apple-touch-icon" href="pokemon-gridiron-logo.png">
-    <link rel="preconnect" href="https://raw.githubusercontent.com">
-    <link rel="stylesheet" href="game.css">
-    <script defer src="pokemon-data.js"></script>
-    <script defer src="game.js"></script>
-    <script type="module" src="firebase-sync.js"></script>
-  </head>
-  <body>
-    <div class="stadium-lights" aria-hidden="true"></div>
-    <header class="app-header">
-      <button class="brand" id="brandHome" aria-label="Return to headquarters">
-        <img class="brand-logo" src="pokemon-gridiron-logo.png" alt="">
-          <span><strong>GRIDIRON</strong><small>NATIONAL LEAGUE</small></span>
-      </button>
-      <div class="header-center" id="headerCenter">
-        <span class="live-dot"></span>
-        <span>GRIDIRON ASSOCIATION</span>
-      </div>
-      <nav class="header-actions" aria-label="Application controls">
-        <button class="icon-button account-button" id="accountButton" data-action="account-open" aria-label="Sign in for cloud saves and leaderboards" title="Sign in for cloud saves & leaderboards"><span aria-hidden="true">☁</span><b>Sign in</b></button>
-        <button class="icon-button player-search-button" data-action="player-directory" aria-label="Find a player profile" title="Find a player profile"><span aria-hidden="true">⌕</span><b>Players</b></button>
-        <button class="icon-button" id="soundToggle" aria-label="Toggle sound" title="Toggle sound">♪</button>
-        <button class="quiet-button" id="newGameButton">New Draft</button>
-        <span class="version">v4.1.1</span>
-      </nav>
-    </header>
-
-    <main id="app" tabindex="-1"></main>
-
-    <div class="modal-shell hidden" id="modalShell" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <button class="modal-backdrop" data-close-modal aria-label="Close dialog"></button>
-      <section class="modal-card" id="modalContent"></section>
-    </div>
-
-    <div class="toast-region" id="toastRegion" aria-live="polite"></div>
-
-    <noscript>
-      <div class="noscript">Pokémon Gridiron requires JavaScript to run Franchise, the draft, and the live simulation.</div>
-    </noscript>
-  </body>
-</html>
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Feral Regions"><meta name="theme-color" content="#213e3e"><meta name="description" content="Build a living Feral region. Shape the routes, design the gyms, and watch ordinary trainers become champions."><link rel="manifest" href="manifest.webmanifest?v=2.0.1"><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="icon-192.png"><script type="module" src="pwa-boot.js"></script><title>Feral Regions</title><link rel="stylesheet" href="style.css"></head><body>
+<section id="authGate" aria-label="Account login"><div class="authCard"><span class="eyebrow">FERAL REGIONS</span><h1 id="authTitle">Welcome back</h1><p>Build your world. Raise a region of champions.</p><button class="wide" data-action="gate-google">Continue with Google</button><div class="authDivider">or use email</div><form id="gateForm"><label>Email<input id="gateEmail" type="email" autocomplete="email" required></label><label>Password<input id="gatePassword" type="password" autocomplete="current-password" minlength="6" required></label><button id="gateSubmit" type="submit" class="primary wide">Log in</button></form><p id="authError" role="status"></p><button id="gateRetry" class="wide" data-action="gate-retry" hidden>Retry loading my save</button><button id="gateMode" class="wide" data-action="gate-mode">New here? Create an account</button><button class="wide" data-action="gate-reset">Forgot password?</button><small>Your region stays paused while you’re away.</small></div></section>
+<div id="game" inert>
+<canvas id="world" aria-label="Feral region map. Drag to pan, pinch to zoom, tap to inspect." tabindex="0"></canvas>
+<header id="top"><button class="brand" data-action="panel" data-tab="region"><span class="brand-mark">✦</span><span>FERAL <b>REGIONS</b><small id="regionName">GREENHAVEN</small></span></button><div class="stats"><button data-action="panel" data-tab="region"><small>TREASURY</small><strong id="money">$8,500</strong></button><button data-action="panel" data-tab="trainers"><small>TRAINERS</small><strong id="population">0</strong></button><button class="day" data-action="panel" data-tab="journal"><small id="day">DAY 1</small><strong id="clock">08:00</strong></button></div><button id="deviceSaveStatus" data-action="panel" data-tab="account" aria-live="polite">Waiting for login</button><button class="round" id="accountButton" data-action="panel" data-tab="account" aria-label="Account and saves">☁</button></header>
+<div id="watchTag"><span class="live-dot"></span><span id="modeLabel">A WORLD OF POSSIBILITIES</span></div>
+<div id="guide" hidden></div><div id="watchlist" hidden></div><button id="leagueAlert" hidden></button>
+<div id="camera"><button data-action="zoom-in" aria-label="Zoom in">+</button><button data-action="zoom-out" aria-label="Zoom out">−</button><button data-action="home" aria-label="Return to town">⌖</button></div>
+<div id="followBanner" hidden></div>
+<div id="news"><span>REGION JOURNAL</span><button id="newsText" data-action="panel" data-tab="journal">Your story starts here.</button></div>
+<aside id="worldChat" aria-label="World chat"></aside>
+<div id="buildTray" hidden></div>
+<nav id="dock" aria-label="Main controls"><button id="watchBtn" class="active" data-action="watch"><span>◉</span>Watch</button><button id="buildBtn" data-action="build"><span>▧</span>Build</button><button data-action="panel" data-tab="trainers"><span>♙</span>Trainers</button><button data-action="panel" data-tab="league"><span>♛</span>League</button><button data-action="panel" data-tab="dex"><span>✧</span>Feral-dex</button><div class="speed"><button id="pause" data-action="pause" aria-label="Pause">Ⅱ</button><button id="speed" data-action="speed">1×</button></div></nav>
+<aside id="panel" hidden aria-label="Region details"><div class="panelTop"><div><small id="panelEyebrow">REGION MANAGEMENT</small><h1 id="panelTitle">Your region</h1></div><button class="round" data-action="close" aria-label="Close panel">×</button></div><div id="panelBody"></div></aside>
+<div id="toast" role="status" hidden></div>
+<dialog id="confirmDialog"><h2 id="confirmTitle"></h2><p id="confirmText"></p><div class="actions"><button data-action="cancel-confirm">Cancel</button><button id="confirmYes" class="primary">Confirm</button></div></dialog>
+<dialog id="welcome"><span class="eyebrow">BUILD A WORLD. WATCH A LEGEND.</span><h1>Every champion<br>starts somewhere.</h1><p>Start with nothing but short green grass. Build your lab, shops, routes and gyms. Then open the gates and watch your first trainers begin their journeys.</p><label>Name your region<input id="newName" maxlength="48" value="Greenhaven Region"></label><button class="primary wide" data-action="start">Start building <span>→</span></button><button class="wide" data-action="panel" data-tab="account">Load an existing region</button><small>A private tycoon world · saved on this device · optional cloud saves</small></dialog>
+<input id="importFile" type="file" accept="application/json,.json" hidden>
+</div><script type="module" src="app.js"></script></body></html>
